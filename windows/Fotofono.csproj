@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Fotofono</AssemblyName>
+    <RootNamespace>Fotofono</RootNamespace>
+    <ApplicationIcon>fotofono.ico</ApplicationIcon>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <Version>2.0.0</Version>
+    <Product>Fotofono</Product>
+    <AssemblyTitle>Fotofono</AssemblyTitle>
+    <Description>Turns any image into sound with deterministic rules (no neural network)</Description>
+    <Copyright>MIT License</Copyright>
+
+    <!-- One portable .exe: no .NET installation needed on the target PC -->
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <DebugType>none</DebugType>
+    <!-- The WebView2 package also ships a WPF assembly this app doesn't use: harmless warning -->
+    <NoWarn>$(NoWarn);MSB3277</NoWarn>
+    <AllowedReferenceRelatedFileExtensions>.pdb</AllowedReferenceRelatedFileExtensions>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.2903.40" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The same page as the website: one source for web and desktop -->
+    <EmbeddedResource Include="..\docs\index.html" LogicalName="index.html" />
+    <EmbeddedResource Include="fotofono.ico" LogicalName="fotofono.ico" />
+    <!-- Interface fonts (SIL Open Font License), so the app works offline -->
+    <EmbeddedResource Include="fonts\*" LogicalName="fonts/%(Filename)%(Extension)" />
+  </ItemGroup>
+
+</Project>

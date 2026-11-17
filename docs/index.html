@@ -1,0 +1,1615 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Fotofono</title>
+<meta name="description" content="Fotofono turns any image into sound with nine deterministic rules: spectrogram, raw bytes, music box, colour, wavetable, edges and XY oscilloscope. No neural network.">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Share+Tech+Mono&family=IBM+Plex+Sans:wght@400;500&display=swap">
+<style>
+/* Layout (EN: a full-window audio rack) — un rack audio a tutta finestra. Colonna a sinistra con marchio e banco modalità, sorgente + monitor al centro, striscia di manopole (+ manuale sugli schermi larghi), trasporto in basso. Un solo look scuro, scelto di proposito. */
+:root{
+  color-scheme:dark;
+  --chassis:#121418; --panel:#1b1e23; --panel-2:#23272d; --bezel:#08090b; --edge:#2b3038; --edge-hi:#3b414b;
+  --ink:#e4e7ec; --text:#c5cad3; --dim:#8a919d;
+  --amber:#ffb23e; --amber-glow:rgba(255,178,62,.45); --hot:#ff5b3a; --cyan:#5fd0e4;
+  --screen:#07080a; --scr-a:#ffb23e; --scr-b:#5fd0e4; --scr-grid:rgba(255,178,62,.09);
+  --f-label:"Chakra Petch", "Bahnschrift", "Segoe UI", sans-serif;
+  --f-lcd:"Share Tech Mono", "Cascadia Mono", Consolas, monospace;
+  --f-body:"IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{user-select:none;-webkit-user-select:none;background:var(--chassis);background-image:radial-gradient(120% 80% at 50% 0%,#1a1d22 0%,var(--chassis) 60%);color:var(--ink);font-family:var(--f-body);font-size:13px;line-height:1.45;
+  padding-left:max(16px, env(safe-area-inset-left, 0px));padding-right:max(16px, env(safe-area-inset-right, 0px));padding-block:12px;overflow:hidden}
+.app{height:100%;max-width:1800px;margin:0 auto;display:grid;grid-template-rows:minmax(0,1fr) auto auto;gap:8px}
+.rack{background:linear-gradient(180deg,var(--panel-2),var(--panel));border:1px solid var(--edge);border-radius:6px;box-shadow:inset 0 1px 0 rgba(255,255,255,.045),0 2px 4px rgba(0,0,0,.45);min-width:0}
+.engr{font-family:var(--f-label);font-weight:600;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--dim)}
+.lcd{font-family:var(--f-lcd);background:var(--bezel);color:var(--amber);border:1px solid #000;border-radius:4px;box-shadow:inset 0 1px 3px rgba(0,0,0,.85),0 1px 0 rgba(255,255,255,.05);
+  padding:5px 10px;text-shadow:0 0 6px var(--amber-glow);font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.led{width:7px;height:7px;border-radius:50%;background:#3a2c1b;box-shadow:inset 0 1px 1px rgba(0,0,0,.7);flex:none}
+.led.on,[aria-pressed="true"]>.led,[aria-selected="true"]>.led{background:var(--amber);box-shadow:0 0 7px var(--amber),inset 0 0 1px #fff}
+#busy.on{background:var(--hot);box-shadow:0 0 7px var(--hot)}
+
+/* tasti hardware */
+.hw{font-family:var(--f-label);font-weight:600;font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink);
+  background:linear-gradient(180deg,#2e333b,#22262c);border:1px solid #0a0b0e;border-radius:4px;box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 1px 2px rgba(0,0,0,.55);
+  padding:6px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:7px;line-height:1.1;white-space:nowrap}
+.hw:hover{border-color:#4b525e}
+.hw:active,.hw[aria-pressed="true"],.hw[aria-selected="true"]{background:linear-gradient(180deg,#191c21,#23272d);box-shadow:inset 0 1px 3px rgba(0,0,0,.75)}
+.hw[aria-pressed="true"],.hw[aria-selected="true"]{color:#fff}
+.hw[disabled]{opacity:.45;cursor:default}
+.hw:focus-visible,.kdial:focus-visible,select:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+
+/* marchio */
+.brand{display:flex;align-items:center;gap:8px;min-width:0;padding:0 2px 8px;border-bottom:1px solid var(--edge-hi)}
+.brand svg{flex:none}
+.name{font-family:var(--f-label);font-weight:700;letter-spacing:.14em;font-size:14px;line-height:1.1;white-space:nowrap}
+.brand .engr{font-size:9px;letter-spacing:.1em;line-height:1.25;margin-top:2px}
+.status{display:flex;align-items:center;gap:7px;min-width:0;flex:0 1 auto;font-size:12px;padding:4px 8px;margin-left:auto}
+.modhead.mon{flex-wrap:nowrap}
+.modhead.mon .sw,.modhead.mon>.engr{flex:none}
+.status #status{overflow:hidden;text-overflow:ellipsis}
+
+/* banco modalità: colonna a sinistra */
+.bank{display:flex;flex-direction:column;gap:8px;padding:8px;overflow-x:hidden;overflow-y:auto;min-height:0}
+.banklist{display:flex;flex-direction:column;gap:7px}
+.grp{display:flex;flex-direction:column;gap:4px}
+.grp>.engr{border-bottom:1px solid var(--edge-hi);padding:0 2px 3px}
+.grp .row{display:flex;flex-direction:column;gap:4px}
+.mbtn{width:100%;padding:5px 8px}
+.mbtn .num{font-family:var(--f-lcd);color:var(--dim);font-size:10.5px;font-weight:400;letter-spacing:0;margin-left:auto}
+
+/* moduli centrali */
+.mainrow{display:grid;grid-template-columns:162px minmax(0,1fr) minmax(0,1.35fr);gap:8px;min-height:0}
+.mod{display:flex;flex-direction:column;min-height:0;padding:8px 10px 10px;gap:8px}
+.modhead{display:flex;align-items:center;gap:8px 10px;flex-wrap:wrap;min-height:28px}
+.modhead .right{margin-left:auto;display:flex;gap:4px;flex-wrap:wrap;align-items:center}
+.stage{flex:1;min-height:0;background:var(--bezel);border-radius:4px;box-shadow:inset 0 1px 5px rgba(0,0,0,.85),0 0 0 1px #000;display:flex;align-items:center;justify-content:center;padding:8px;position:relative;overflow:hidden}
+.stage.drag{outline:2px dashed var(--amber);outline-offset:-6px}
+.imgin{position:relative;line-height:0}
+#imgc{display:block}
+#ovc{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.modfoot{display:flex;justify-content:space-between;gap:12px;font-family:var(--f-lcd);font-size:11.5px;color:var(--dim);white-space:nowrap}
+.modfoot span{overflow:hidden;text-overflow:ellipsis;min-width:0}
+select.hw{appearance:none;-webkit-appearance:none;padding-right:24px;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='9' height='5'%3E%3Cpath d='M0 0h9L4.5 5z' fill='%23e4e7ec'/%3E%3C/svg%3E") no-repeat right 8px center,linear-gradient(180deg,#2e333b,#22262c)}
+select.hw option{background:#111317;color:var(--ink);text-transform:none}
+.scr{flex:1;min-height:0;position:relative;background:var(--screen);border-radius:4px;box-shadow:inset 0 1px 5px rgba(0,0,0,.9),0 0 0 1px #000;overflow:hidden}
+.scr canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.scr::after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.22) 0 1px,transparent 1px 3px);border-radius:4px}
+.scrinfo{position:absolute;right:10px;top:8px;z-index:1;font-family:var(--f-lcd);font-size:11.5px;color:var(--amber);opacity:.75;text-shadow:0 0 6px var(--amber-glow);pointer-events:none}
+.scrnote{position:absolute;left:12px;bottom:10px;font-family:var(--f-lcd);color:var(--amber);font-size:12.5px;text-shadow:0 0 6px var(--amber-glow);pointer-events:none;z-index:1}
+.sw{display:inline-flex;gap:3px}
+
+/* manopole e parametri */
+.ctrlrow{display:grid;grid-template-columns:minmax(0,1fr) minmax(300px,.4fr);gap:8px}
+.pmap{flex:1 1 160px;min-width:0;font-family:var(--f-lcd);font-size:11.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:none}
+#mantoggle,#manclose{display:none}
+.manual .manwrap{flex:1;min-height:0;position:relative}
+.manual .manbody{position:absolute;inset:0}
+.knobs{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch;max-height:252px;overflow:auto;padding:0 2px 2px}
+.knob{width:78px;display:flex;flex-direction:column;align-items:center;gap:4px;user-select:none}
+.klab{font-family:var(--f-label);font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--dim);line-height:1.15;min-height:2.3em;display:flex;align-items:flex-end}
+.knob .klab{justify-content:center;text-align:center}
+.kdial{width:52px;height:52px;cursor:ns-resize;touch-action:none;border-radius:50%}
+.kdial svg{width:100%;height:100%;display:block;overflow:visible}
+.ktrack{fill:none;stroke:#050607;stroke-width:4.5;stroke-linecap:round}
+.karc{fill:none;stroke:var(--amber);stroke-width:3;stroke-linecap:round;filter:drop-shadow(0 0 2px var(--amber-glow))}
+.kbody{fill:url(#kgrad);stroke:#0a0b0d;stroke-width:1}
+.kind{stroke:var(--ink);stroke-width:2.4;stroke-linecap:round}
+.kval{font-family:var(--f-lcd);font-size:11px;color:var(--amber);background:var(--bezel);border-radius:3px;padding:2px 5px;min-width:64px;max-width:78px;text-align:center;text-shadow:0 0 5px var(--amber-glow);box-shadow:inset 0 1px 2px #000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.knob.compact{width:auto;flex-direction:row;gap:8px}
+.knob.compact .klab{min-height:0}
+.knob.compact .kdial{width:36px;height:36px}
+.selu{width:184px;display:flex;flex-direction:column;gap:4px}
+.selu select{appearance:none;-webkit-appearance:none;font-family:var(--f-lcd);font-size:12px;color:var(--amber);text-shadow:0 0 5px var(--amber-glow);
+  background:var(--bezel) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0h10L5 6z' fill='%23ffb23e'/%3E%3C/svg%3E") no-repeat right 9px center;
+  border:1px solid #000;border-radius:4px;padding:7px 26px 7px 8px;box-shadow:inset 0 1px 3px #000;width:100%;cursor:pointer}
+.selu select option{background:#111317;color:var(--ink)}
+.togu{width:122px;display:flex;flex-direction:column;gap:4px}
+.togu .hw{justify-content:flex-start}
+.manbody{overflow:auto;padding-right:4px;user-select:text;-webkit-user-select:text}
+.manbody h2{font-family:var(--f-label);font-size:15px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin:0 0 4px;color:var(--ink)}
+.manbody p{margin:0 0 8px;color:var(--text);font-size:12.5px;max-width:65ch}
+table.map{border-collapse:collapse;width:100%;font-size:12px}
+table.map td{padding:3px 0;border-top:1px solid var(--edge);vertical-align:top}
+table.map td:first-child{font-family:var(--f-lcd);color:var(--amber);width:46%;padding-right:8px}
+table.map td:nth-child(2){color:var(--text)}
+
+/* gruppi di parametri */
+.pgrp{display:flex;flex-direction:column;gap:6px;padding:6px 10px 8px;border:1px solid var(--edge);border-radius:5px;background:rgba(0,0,0,.16);min-width:0}
+.pgrp>.engr{font-size:9.5px;color:var(--amber);opacity:.85}
+.pctl{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:flex-start}
+.isadv .klab{color:#a8afbb}
+.pname{color:var(--amber)}
+#advcount{font-family:var(--f-lcd);font-weight:400;letter-spacing:0;color:var(--amber)}
+.langbox{margin-top:auto;display:flex;align-items:center;gap:6px;padding-top:8px;border-top:1px solid var(--edge-hi)}
+.langbox svg{flex:none;color:var(--dim)}
+.langbox select{flex:1;min-width:0;font-size:11px;padding:5px 22px 5px 8px;letter-spacing:.04em}
+
+/* trasporto */
+.transport{display:flex;align-items:center;gap:10px;padding:8px 12px;flex-wrap:wrap}
+.tbtns{display:flex;gap:4px}
+.tb{width:42px;height:36px;justify-content:center;padding:0}
+.tb.play[aria-pressed="true"]{color:var(--amber)}
+.tb svg{width:15px;height:15px}
+.time{font-size:16px;padding:6px 10px}
+#ovw{flex:1 1 220px;min-width:140px;height:40px;background:var(--screen);border-radius:4px;cursor:pointer;box-shadow:inset 0 1px 3px #000,0 0 0 1px #000;display:block}
+
+.toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom, 0px));transform:translateX(-50%);font-family:var(--f-lcd);background:var(--bezel);color:var(--amber);border:1px solid var(--edge-hi);
+  padding:8px 16px;border-radius:4px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20;max-width:calc(100% - 32px);text-shadow:0 0 6px var(--amber-glow);box-shadow:0 6px 20px rgba(0,0,0,.6)}
+.toast.on{opacity:1}
+
+/* schermi medi: il manuale diventa un pannello apribile, la mappatura resta visibile su una riga */
+@media (max-width:1499px){
+  .ctrlrow{grid-template-columns:minmax(0,1fr)}
+  .pmap{display:block}
+  #mantoggle{display:inline-flex}
+  .manual{display:none}
+  .manual.open{display:flex;position:fixed;z-index:15;right:max(16px, env(safe-area-inset-right, 0px));bottom:calc(84px + env(safe-area-inset-bottom, 0px));width:min(440px, calc(100% - 32px));height:min(56vh, 460px);box-shadow:0 12px 40px rgba(0,0,0,.7)}
+  .manual.open #manclose{display:inline-flex}
+}
+@media (max-width:1299px){ .modfoot .hint{display:none} }
+@media (max-height:820px){
+  .grp>.engr,.brand .engr{display:none}
+  .grp+.grp{border-top:1px solid var(--edge-hi);padding-top:6px}
+  .banklist{gap:6px}
+  .brand{padding-bottom:6px}
+}
+/* finestre strette o basse: si scorre */
+@media (max-width:980px), (max-height:640px){
+  body{overflow:auto}
+  .app{height:auto;grid-template-rows:none}
+  .mainrow{grid-template-columns:minmax(0,1fr)}
+  .bank{overflow:visible}
+  .banklist{flex-direction:row;flex-wrap:wrap;gap:8px 16px}
+  .grp .row{flex-direction:row;flex-wrap:wrap}
+  .mbtn{width:auto}
+  .langbox{margin-top:0;border-top:0;padding-top:0}
+  .stage{height:300px;flex:none}
+  .scr{height:220px;flex:none}
+  .ctrlrow{grid-template-columns:minmax(0,1fr)}
+  .knobs{max-height:none}
+  .manual,.manual.open{display:flex;position:static;width:auto;height:auto;box-shadow:none}
+  .manual .manbody{position:static}
+  .pmap,#mantoggle,#manclose,.manual.open #manclose{display:none}
+  .transport{position:sticky;bottom:0;z-index:5;box-shadow:0 -6px 16px rgba(0,0,0,.55)}
+}
+@media (max-width:520px){
+  .knob{width:74px}
+  .selu{width:100%}
+  .togu{width:calc(50% - 7px)}
+  .time{font-size:14px}
+}
+@media (prefers-reduced-motion: reduce){.toast{transition:none}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <radialGradient id="kgrad" cx="40%" cy="30%" r="75%"><stop offset="0" stop-color="#4a505a"/><stop offset=".55" stop-color="#2a2e35"/><stop offset="1" stop-color="#16181c"/></radialGradient>
+</defs></svg>
+
+<div class="app">
+  <main class="mainrow">
+    <nav class="rack bank" aria-label="Fotofono">
+      <div class="brand">
+        <svg width="30" height="30" viewBox="0 0 34 34" aria-hidden="true"><rect x=".5" y=".5" width="33" height="33" rx="5" fill="#08090b" stroke="#000"/><g fill="#ffb23e"><rect x="6" y="15" width="3" height="10" rx="1.5"/><rect x="11" y="10" width="3" height="15" rx="1.5"/><rect x="16" y="6" width="3" height="19" rx="1.5"/><rect x="21" y="12" width="3" height="13" rx="1.5"/><rect x="26" y="17" width="3" height="8" rx="1.5"/></g><rect x="6" y="27" width="23" height="1.5" rx=".75" fill="#ffb23e" opacity=".4"/></svg>
+        <div>
+          <div class="name">FOTOFONO</div>
+          <div class="engr" data-t="ui.tagline">No neural network</div>
+        </div>
+      </div>
+      <div class="banklist" id="bank"></div>
+      <div class="langbox">
+        <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6.5" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M1.5 8h13M8 1.5c2 2 2.8 4.2 2.8 6.5S10 12.5 8 14.5M8 1.5C6 3.5 5.2 5.7 5.2 8S6 12.5 8 14.5" fill="none" stroke="currentColor" stroke-width="1.1"/></svg>
+        <select class="hw" id="lang" data-tt="ui.lang" aria-label="Language"></select>
+      </div>
+    </nav>
+    <section class="rack mod" aria-labelledby="t-source">
+      <div class="modhead">
+        <span class="engr" id="t-source" data-t="ui.source">Source</span>
+        <div class="right">
+          <label class="hw" for="file" data-t="ui.open" data-tt="tip.open">Open…</label>
+          <input id="file" type="file" accept="image/*" hidden>
+          <select class="hw" id="samples" data-tt="tip.examples" aria-label="Examples"><option value="" data-t="ui.examples">Examples</option><option value="exSunset" data-t="ui.exSunset">Sunset</option><option value="exShapes" data-t="ui.exShapes">Shapes</option><option value="exWord" data-t="ui.exWord">Lettering</option></select>
+        </div>
+      </div>
+      <div class="stage" id="stage"><div class="imgin"><canvas id="imgc" width="640" height="400"></canvas><canvas id="ovc"></canvas></div></div>
+      <div class="modfoot"><span id="imeta">—</span><span class="hint" data-t="ui.drop">drag or paste an image</span></div>
+    </section>
+
+    <section class="rack mod" aria-labelledby="t-monitor">
+      <div class="modhead mon">
+        <span class="engr" id="t-monitor" data-t="ui.monitor">Monitor</span>
+        <div class="sw" role="tablist">
+          <button class="hw" role="tab" type="button" id="tab-spec" aria-selected="true" data-scope="spec"><span class="led"></span><span data-t="ui.spec">Spectrum</span></button>
+          <button class="hw" role="tab" type="button" id="tab-wave" aria-selected="false" data-scope="wave"><span class="led"></span><span data-t="ui.wave">Wave</span></button>
+          <button class="hw" role="tab" type="button" id="tab-xy" aria-selected="false" data-scope="xy"><span class="led"></span><span data-t="ui.xy">XY</span></button>
+        </div>
+        <div class="lcd status" role="status"><span class="led" id="busy"></span><span id="status" data-t="st.prep">Getting ready…</span></div>
+      </div>
+      <div class="scr">
+        <div class="scrinfo" id="scrinfo">—</div>
+        <canvas id="specc"></canvas>
+        <canvas id="wavec" hidden></canvas>
+        <div class="scrnote" id="scrnote" data-t="ui.press">PRESS ▶ TO LISTEN</div>
+      </div>
+    </section>
+  </main>
+
+  <section class="ctrlrow">
+    <div class="rack mod" aria-labelledby="t-params">
+      <div class="modhead">
+        <span class="engr" id="t-params" data-t="ui.params">Parameters</span>
+        <span class="engr pname" id="pname"></span>
+        <span class="pmap" id="pmap"></span>
+        <div class="right">
+          <button class="hw" type="button" id="advtoggle" aria-pressed="false" data-tt="tip.adv"><span class="led"></span><span data-t="ui.adv">Advanced</span><span id="advcount"></span></button>
+          <button class="hw" type="button" id="mantoggle" aria-expanded="false" aria-controls="manual" data-t="ui.manual" data-tt="tip.manual">Manual</button>
+          <button class="hw" type="button" id="reset" data-t="ui.reset" data-tt="tip.reset">Reset</button>
+        </div>
+      </div>
+      <div class="knobs" id="params"></div>
+    </div>
+    <div class="rack mod manual" id="manual" aria-labelledby="t-manual">
+      <div class="modhead"><span class="engr" id="t-manual" data-t="ui.manual">Manual</span><div class="right"><button class="hw" type="button" id="manclose" data-t="ui.close">Close</button></div></div>
+      <div class="manwrap"><div class="manbody">
+        <h2 id="mname">—</h2>
+        <p id="mdesc"></p>
+        <table class="map"><tbody id="mmap"></tbody></table>
+      </div></div>
+    </div>
+  </section>
+
+  <footer class="rack transport">
+    <div class="tbtns">
+      <button class="hw tb" type="button" id="rew" aria-label="Back to start" data-tt="tip.rew"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2 2h2v12H2zM14 2v12L5 8z" fill="currentColor"/></svg></button>
+      <button class="hw tb play" type="button" id="play" aria-label="Play" data-tt="tip.play" aria-pressed="false" disabled><svg viewBox="0 0 16 16" aria-hidden="true"><path id="playico" d="M4 2l10 6-10 6z" fill="currentColor"/></svg></button>
+      <button class="hw tb" type="button" id="stop" aria-label="Stop" data-tt="tip.stop"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="3" width="10" height="10" rx="1" fill="currentColor"/></svg></button>
+    </div>
+    <div class="lcd time" id="time">00:00.0 / 00:00.0</div>
+    <canvas id="ovw" data-tt="tip.seek"></canvas>
+    <button class="hw" type="button" id="loop" aria-pressed="true"><span class="led"></span><span data-t="ui.loop">Loop</span></button>
+    <div id="volk"></div>
+    <button class="hw" type="button" id="dl" data-tt="tip.saveWav"><span class="t">Save WAV</span></button>
+    <button class="hw" type="button" id="dlall" data-tt="tip.saveAll"><span class="t">Save all</span></button>
+  </footer>
+</div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+"use strict";
+/* ======================= lingue / languages =======================
+   To add a language: copy the `en` block, translate the values, add it to I18N. Missing keys fall back to English. */
+const I18N = {
+en: {
+  name: 'English',
+  notes: ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'],
+  ui: { tagline:'No neural network', source:'Source', monitor:'Monitor', params:'Parameters', manual:'Manual', open:'Open…', examples:'Examples', exSunset:'Sunset', exShapes:'Shapes', exWord:'Lettering', word:'SOUND', drop:'drag or paste an image', spec:'Spectrum', wave:'Wave', xy:'XY', press:'PRESS ▶ TO LISTEN', loop:'Loop', vol:'Vol', saveWav:'Save WAV', saveAll:'Save all', reset:'Reset', adv:'Advanced', close:'Close', lang:'Language', on:'On', off:'Off' },
+  tip: { open:'Open an image (Ctrl+O)', saveWav:"Save this mode's sound (Ctrl+S)", saveAll:'Save the sounds of all nine modes as a zip (Ctrl+Shift+S)', reset:"Restore this mode's parameters to their defaults", adv:'Show or hide the advanced parameters', manual:'How this mode works', rew:'Back to start', play:'Play / pause (space)', stop:'Stop', seek:'Click to jump within the sound', knob:'drag up or down, scroll or use the arrow keys; double-click for the default', examples:'Example images', mode:'{0} (key {1})' },
+  st: { prep:'Getting ready…', calc:'COMPUTING…', error:'ERROR', silence:'SILENCE', archive:'ARCHIVE: {0}…', archiveReady:'ARCHIVE READY · {0} FILES' },
+  msg: { silent:'With this image the {0} mode makes no sound: try another mode or change the parameters', notImage:'This file is not an image', cantRead:"This image can't be read", cantOpen:"Can't open {0}", saved:'Saved: {0}', downloaded:'Downloaded: {0}', delivered:'File delivered: {0}', cancelled:'Save cancelled', saveFailed:"Couldn't save the file", saveNA:'Saving is not available in this view', tooBig:'Image too large: {0}' },
+  scr: { silent:'silence: with this image this mode makes no sound', analysing:'analysing the spectrum…', xy:'left = X · right = Y', wave:'amber = left · cyan = right' },
+  mk: { endTail:'end of image · tail', repeats:'repeats', tail:'tail' },
+  cur: { tailRing:'tail: the last notes ring out', note:'note', rest:'rest (same as background)', noColour:'no colour', chord:'chord', oneHue:'single hue: octaves only', onlyAir:'no colour: only air' },
+  info: { bytes:'{0} bytes read', points:'{0} points' },
+  cat: { waves:'Waves', binary:'Binary', pixel:'Pixels', colour:'Colour', shape:'Shape' },
+  grp: { time:'Time', pitch:'Pitch', read:'Reading', tone:'Tone' },
+  p: { dur:'Duration', bands:'Bands', fmin:'Lowest frequency', fmax:'Highest frequency', axis:'Frequency axis', gamma:'Contrast', stereo:'Stereo from colour', what:'What plays', source:'Byte source', size:'Resolution', scan:'Reading order', chan:'Channels', fmt:'Sample format', rate:'Sample rate', start:'Start point', maxDur:'Maximum duration', steps:'Steps', rows:'Notes', scale:'Scale', low:'Lowest note', bpm:'Tempo', thresh:'Threshold', poly:'Notes per step', noteLen:'Note length', gw:'Cells across', gh:'Cells down', tonic:'Tonic', octaves:'Octaves', legato:'Legato', bass:'Bass', frames:'Rows read', note:'Note', unison:'Voices', detune:'Detune', smooth:'Smoothness', ping:'Back and forth', sub:'Octave below', cols:'Columns read', range:'Range', glide:'Glide', cont:'Continuity', loops:'Repeats', swing:'Swing', bassline:'Bass line', detail:'Points', edge:'Edge selectivity', refresh:'Redraws per second', spin:'Rotation', windows:'Chords', chordNotes:'Notes per chord', shimmer:'Beating', air:'Air from greys' },
+  o: {
+    axis: { log:'Logarithmic', lin:'Linear' },
+    what: { diff:'Differs from background', light:'Light areas', dark:'Dark areas' },
+    source: { pixel:'Decoded pixels', file:'Compressed file' },
+    scan: { rows:'Rows', serp:'Serpentine', cols:'Columns', diag:'Diagonals', spiral:'Spiral', hilbert:'Hilbert curve' },
+    chan: { rgb:'RGB interleaved', rgba:'RGBA interleaved', r:'Red only', g:'Green only', b:'Blue only', lum:'Luminance' },
+    fmt: { u8:'8-bit unsigned', s16:'16-bit signed', bit:'1 bit per sample' },
+    scale: { penta:'Major pentatonic', minpenta:'Minor pentatonic', maj:'Major', min:'Natural minor', dorian:'Dorian', blues:'Blues', whole:'Whole tone', hira:'Hirajoshi', chrom:'Chromatic' }
+  },
+  m: {
+    spectral: { n:'Inverse spectrogram', s:'Spectrum', d:'The image is read as a spectrogram: each row is an oscillator at a fixed frequency and brightness sets its volume moment by moment. On the Spectrum screen the image reappears.', map:['X → time','Y → frequency (top = high)','Brightness → volume','Red / blue → left / right'] },
+    databend: { n:'Bytes as samples', s:'Bytes', d:"No interpretation: the pixel numbers become the wave's samples directly, in the reading order you choose. With «Compressed file» you play the bytes of the PNG or JPEG: almost white noise, because compression removes all redundancy.", map:['Byte 0–255 → sample from −1 to +1','Reading order → sequence in time','Sample rate → speed and pitch'] },
+    carillon: { n:'Grid music box', s:'Music box', d:'The image becomes a music-box roll: columns are steps, rows are degrees of the scale. The cells that differ from the background (the most common colour) play: a drawing on white paper plays its lines, not the paper.', map:['Column → step','Row → scale degree','Difference from background → volume','Colour → timbre and stereo position'] },
+    melodia: { n:'Colour melody', s:'Melody', d:'The colour wheel is laid over the scale: red is the tonic, and moving through yellow, green, blue and violet climbs the scale. Colourless areas play according to brightness, with a darker timbre. Cells equal to the background are rests.', map:['Hue → scale degree','Light / dark → octave','Same as background → rest','X position → stereo'] },
+    wavetable: { n:'Wavetable', s:'Wavetable', d:'Each row of the image is a single wave cycle: the brightness profile from left to right is the shape of the wave. The sound travels down the rows, morphing from one shape to the next.', map:['Profile of a row → shape of one cycle','Y → time','Fine detail → high harmonics'] },
+    rgb: { n:'Three RGB voices', s:'RGB', d:'Three oscillators follow, column by column, the most substantial band of red, of green and of blue. The higher it sits, the higher the note; the more colour, the louder.', map:['Red → sawtooth, left','Green → triangle, centre','Blue → sine, right','Height of the colour → note'] },
+    ritmo: { n:'Drums from edges', s:'Drums', d:'A Sobel filter finds the edges and the image is split into three bands: edges at the top play the hi-hat, in the middle the snare, at the bottom the kick. The average colour of each column picks the bass note.', map:['Edges at the top → hi-hat','Edges in the middle → snare','Edges at the bottom → kick','Hue → bass note'] },
+    xy: { n:'XY oscilloscope', s:'XY', d:'The edges are ordered into a path and played in stereo: left channel = X, right = Y. An oscilloscope in XY mode redraws the image. The repetition of the path is the note you hear.', map:['X of the edge → left channel','Y of the edge → right channel','Redraws per second → pitch'] },
+    accordo: { n:'Colour chord', s:'Chord', d:'The hues of each vertical strip are counted in twelve sectors, one per semitone, with red as the tonic. The most present colours form a sustained chord that changes across the image. A single hue gives the same note over several octaves.', map:['Hue (12 sectors) → semitone','Amount of colour → volume','Brightness → octave','Greys → air'] }
+  }
+},
+it: {
+  name: 'Italiano',
+  notes: ['Do','Do♯','Re','Re♯','Mi','Fa','Fa♯','Sol','Sol♯','La','La♯','Si'],
+  ui: { tagline:'Nessuna rete neurale', source:'Sorgente', monitor:'Monitor', params:'Parametri', manual:'Manuale', open:'Apri…', examples:'Esempi', exSunset:'Tramonto', exShapes:'Geometrie', exWord:'Scritta', word:'SUONO', drop:"trascina o incolla un'immagine", spec:'Spettro', wave:'Onda', xy:'XY', press:'PREMI ▶ PER ASCOLTARE', loop:'Loop', vol:'Vol', saveWav:'Salva WAV', saveAll:'Salva tutto', reset:'Reset', adv:'Avanzati', close:'Chiudi', lang:'Lingua', on:'Attivo', off:'Spento' },
+  tip: { open:"Apri un'immagine (Ctrl+O)", saveWav:'Salva il suono di questa modalità (Ctrl+S)', saveAll:'Salva i suoni di tutte e nove le modalità in uno zip (Ctrl+Maiusc+S)', reset:'Riporta i parametri di questa modalità ai valori iniziali', adv:'Mostra o nasconde i parametri avanzati', manual:'Come funziona questa modalità', rew:"Torna all'inizio", play:'Suona / pausa (spazio)', stop:'Stop', seek:'Clicca per spostarti nel suono', knob:'trascina in verticale, usa la rotella o le frecce; doppio clic = valore iniziale', examples:'Immagini di esempio', mode:'{0} (tasto {1})' },
+  st: { prep:'Preparazione…', calc:'CALCOLO…', error:'ERRORE', silence:'SILENZIO', archive:'ARCHIVIO: {0}…', archiveReady:'ARCHIVIO PRONTO · {0} FILE' },
+  msg: { silent:"Con questa immagine la modalità {0} non produce suono: prova un'altra modalità o cambia i parametri", notImage:"Questo file non è un'immagine", cantRead:'Impossibile leggere questa immagine', cantOpen:'Impossibile aprire {0}', saved:'Salvato: {0}', downloaded:'Scaricato: {0}', delivered:'File consegnato: {0}', cancelled:'Salvataggio annullato', saveFailed:'Salvataggio non riuscito', saveNA:'Il salvataggio non è disponibile in questa vista', tooBig:'Immagine troppo grande: {0}' },
+  scr: { silent:'silenzio: con questa immagine questa modalità non produce suono', analysing:'analisi dello spettro…', xy:'sinistro = X · destro = Y', wave:'ambra = sinistro · azzurro = destro' },
+  mk: { endTail:'fine immagine · coda', repeats:'si ripete', tail:'coda' },
+  cur: { tailRing:'coda: le ultime note risuonano', note:'nota', rest:'pausa (come lo sfondo)', noColour:'senza colore', chord:'accordo', oneHue:'una sola tinta: solo ottave', onlyAir:'nessun colore: solo soffio' },
+  info: { bytes:'{0} byte letti', points:'{0} punti' },
+  cat: { waves:'Onde', binary:'Binario', pixel:'Pixel', colour:'Colore', shape:'Forma' },
+  grp: { time:'Tempo', pitch:'Altezza', read:'Lettura', tone:'Timbro' },
+  p: { dur:'Durata', bands:'Bande', fmin:'Frequenza minima', fmax:'Frequenza massima', axis:'Asse delle frequenze', gamma:'Contrasto', stereo:'Stereo dal colore', what:'Cosa suona', source:'Sorgente dei byte', size:'Risoluzione', scan:'Ordine di lettura', chan:'Canali', fmt:'Formato dei campioni', rate:'Campionamento', start:'Punto di partenza', maxDur:'Durata massima', steps:'Passi', rows:'Note', scale:'Scala', low:'Nota più grave', bpm:'Tempo', thresh:'Soglia', poly:'Note per passo', noteLen:'Durata della nota', gw:'Celle in orizzontale', gh:'Celle in verticale', tonic:'Tonica', octaves:'Ottave', legato:'Legato', bass:'Basso', frames:'Righe lette', note:'Nota', unison:'Voci', detune:'Scordatura', smooth:'Morbidezza', ping:'Andata e ritorno', sub:'Ottava sotto', cols:'Colonne lette', range:'Estensione', glide:'Portamento', cont:'Continuità', loops:'Ripetizioni', swing:'Swing', bassline:'Linea di basso', detail:'Punti', edge:'Selettività dei contorni', refresh:'Ridisegni al secondo', spin:'Rotazione', windows:'Accordi', chordNotes:'Note per accordo', shimmer:'Battimenti', air:'Soffio dai grigi' },
+  o: {
+    axis: { log:'Logaritmico', lin:'Lineare' },
+    what: { diff:'Diverso dallo sfondo', light:'Zone chiare', dark:'Zone scure' },
+    source: { pixel:'Pixel decodificati', file:'File compresso' },
+    scan: { rows:'Righe', serp:'Serpentina', cols:'Colonne', diag:'Diagonali', spiral:'Spirale', hilbert:'Curva di Hilbert' },
+    chan: { rgb:'RGB intrecciati', rgba:'RGBA intrecciati', r:'Solo rosso', g:'Solo verde', b:'Solo blu', lum:'Luminanza' },
+    fmt: { u8:'8 bit senza segno', s16:'16 bit con segno', bit:'1 bit per campione' },
+    scale: { penta:'Pentatonica maggiore', minpenta:'Pentatonica minore', maj:'Maggiore', min:'Minore naturale', dorian:'Dorica', blues:'Blues', whole:'Esatonale', hira:'Hirajoshi', chrom:'Cromatica' }
+  },
+  m: {
+    spectral: { n:'Spettrogramma inverso', s:'Spettro', d:"L'immagine viene letta come uno spettrogramma: ogni riga è un oscillatore a frequenza fissa e la luminosità ne decide il volume istante per istante. Sullo schermo Spettro l'immagine riappare.", map:['X → tempo','Y → frequenza (in alto = acuto)','Luminosità → volume','Rosso / blu → sinistra / destra'] },
+    databend: { n:'Byte come campioni', s:'Byte', d:"Nessuna interpretazione: i numeri dei pixel diventano direttamente i campioni dell'onda, nell'ordine di lettura scelto. Con «File compresso» suoni i byte del PNG o JPEG: quasi rumore bianco, perché la compressione toglie ogni ridondanza.", map:['Byte 0–255 → campione da −1 a +1','Ordine di lettura → sequenza nel tempo','Campionamento → velocità e altezza'] },
+    carillon: { n:'Carillon a griglia', s:'Carillon', d:"L'immagine diventa il rullo di un carillon: le colonne sono i passi, le righe i gradi della scala. Suonano le celle che si distinguono dallo sfondo, cioè dal colore più diffuso: un disegno su foglio bianco suona le sue linee, non il foglio.", map:['Colonna → passo','Riga → grado della scala','Differenza dallo sfondo → volume','Colore → timbro e posizione stereo'] },
+    melodia: { n:'Melodia cromatica', s:'Melodia', d:'Il cerchio dei colori viene steso sulla scala: il rosso è la tonica e, girando verso giallo, verde, blu e viola, si sale di grado. Le zone senza colore suonano secondo la luminosità, con un timbro più cupo. Le celle uguali allo sfondo sono pause.', map:['Tinta → grado della scala','Chiaro / scuro → ottava','Uguale allo sfondo → pausa','Posizione X → stereo'] },
+    wavetable: { n:'Wavetable', s:'Wavetable', d:"Ogni riga dell'immagine è un singolo ciclo d'onda: il profilo di luminosità da sinistra a destra è la forma dell'onda. Il suono attraversa le righe dall'alto in basso, sfumando da una forma all'altra.", map:['Profilo di una riga → forma di un ciclo','Y → tempo','Dettagli fini → armoniche acute'] },
+    rgb: { n:'Tre voci RGB', s:'RGB', d:"Tre oscillatori seguono, colonna per colonna, la fascia più consistente di rosso, di verde e di blu. Più in alto si trova, più acuta è la nota; più colore c'è, più forte suona.", map:['Rosso → dente di sega, a sinistra','Verde → triangolare, al centro','Blu → sinusoide, a destra','Altezza del colore → nota'] },
+    ritmo: { n:'Batteria dai contorni', s:'Batteria', d:"Un filtro di Sobel trova i contorni e l'immagine viene divisa in tre fasce: i contorni in alto suonano il charleston, al centro il rullante, in basso la cassa. Il colore medio di ogni colonna sceglie la nota del basso.", map:['Contorni in alto → charleston','Contorni al centro → rullante','Contorni in basso → cassa','Tinta → nota del basso'] },
+    xy: { n:'Oscilloscopio XY', s:'XY', d:"I contorni vengono ordinati in un percorso e suonati in stereo: canale sinistro = X, destro = Y. Un oscilloscopio in modalità XY ridisegna l'immagine. La ripetizione del percorso è la nota che senti.", map:['X del contorno → canale sinistro','Y del contorno → canale destro','Ridisegni al secondo → altezza'] },
+    accordo: { n:'Accordo cromatico', s:'Accordo', d:"Le tinte di ogni striscia verticale vengono contate in dodici settori, uno per semitono, partendo dal rosso come tonica. I colori più presenti formano un accordo tenuto che cambia scorrendo l'immagine. Una sola tinta dà la stessa nota su più ottave.", map:['Tinta (12 settori) → semitono','Quantità di colore → volume','Luminosità → ottava','Grigi → soffio'] }
+  }
+},
+es: {
+  name: 'Español',
+  notes: ['Do','Do♯','Re','Re♯','Mi','Fa','Fa♯','Sol','Sol♯','La','La♯','Si'],
+  ui: { tagline:'Sin red neuronal', source:'Fuente', monitor:'Monitor', params:'Parámetros', manual:'Manual', open:'Abrir…', examples:'Ejemplos', exSunset:'Atardecer', exShapes:'Geometrías', exWord:'Rótulo', word:'SONIDO', drop:'arrastra o pega una imagen', spec:'Espectro', wave:'Onda', xy:'XY', press:'PULSA ▶ PARA ESCUCHAR', loop:'Bucle', vol:'Vol', saveWav:'Guardar WAV', saveAll:'Guardar todo', reset:'Restablecer', adv:'Avanzados', close:'Cerrar', lang:'Idioma', on:'Activado', off:'Apagado' },
+  tip: { open:'Abrir una imagen (Ctrl+O)', saveWav:'Guardar el sonido de este modo (Ctrl+S)', saveAll:'Guardar los sonidos de los nueve modos en un zip (Ctrl+Mayús+S)', reset:'Devolver los parámetros de este modo a sus valores iniciales', adv:'Mostrar u ocultar los parámetros avanzados', manual:'Cómo funciona este modo', rew:'Volver al inicio', play:'Reproducir / pausa (espacio)', stop:'Detener', seek:'Haz clic para moverte dentro del sonido', knob:'arrastra arriba o abajo, usa la rueda o las flechas; doble clic = valor inicial', examples:'Imágenes de ejemplo', mode:'{0} (tecla {1})' },
+  st: { prep:'Preparando…', calc:'CALCULANDO…', error:'ERROR', silence:'SILENCIO', archive:'ARCHIVO: {0}…', archiveReady:'ARCHIVO LISTO · {0} FICHEROS' },
+  msg: { silent:'Con esta imagen el modo {0} no produce sonido: prueba otro modo o cambia los parámetros', notImage:'Este archivo no es una imagen', cantRead:'No se puede leer esta imagen', cantOpen:'No se puede abrir {0}', saved:'Guardado: {0}', downloaded:'Descargado: {0}', delivered:'Archivo entregado: {0}', cancelled:'Guardado cancelado', saveFailed:'No se pudo guardar el archivo', saveNA:'Guardar no está disponible en esta vista', tooBig:'Imagen demasiado grande: {0}' },
+  scr: { silent:'silencio: con esta imagen este modo no produce sonido', analysing:'analizando el espectro…', xy:'izquierdo = X · derecho = Y', wave:'ámbar = izquierdo · cian = derecho' },
+  mk: { endTail:'fin de la imagen · cola', repeats:'se repite', tail:'cola' },
+  cur: { tailRing:'cola: las últimas notas siguen sonando', note:'nota', rest:'silencio (igual que el fondo)', noColour:'sin color', chord:'acorde', oneHue:'un solo tono: solo octavas', onlyAir:'sin color: solo soplo' },
+  info: { bytes:'{0} bytes leídos', points:'{0} puntos' },
+  cat: { waves:'Ondas', binary:'Binario', pixel:'Píxeles', colour:'Color', shape:'Forma' },
+  grp: { time:'Tiempo', pitch:'Altura', read:'Lectura', tone:'Timbre' },
+  p: { dur:'Duración', bands:'Bandas', fmin:'Frecuencia mínima', fmax:'Frecuencia máxima', axis:'Eje de frecuencias', gamma:'Contraste', stereo:'Estéreo por color', what:'Qué suena', source:'Origen de los bytes', size:'Resolución', scan:'Orden de lectura', chan:'Canales', fmt:'Formato de muestra', rate:'Muestreo', start:'Punto de inicio', maxDur:'Duración máxima', steps:'Pasos', rows:'Notas', scale:'Escala', low:'Nota más grave', bpm:'Tempo', thresh:'Umbral', poly:'Notas por paso', noteLen:'Duración de nota', gw:'Celdas a lo ancho', gh:'Celdas a lo alto', tonic:'Tónica', octaves:'Octavas', legato:'Legato', bass:'Bajo', frames:'Filas leídas', note:'Nota', unison:'Voces', detune:'Desafinación', smooth:'Suavidad', ping:'Ida y vuelta', sub:'Octava inferior', cols:'Columnas leídas', range:'Extensión', glide:'Portamento', cont:'Continuidad', loops:'Repeticiones', swing:'Swing', bassline:'Línea de bajo', detail:'Puntos', edge:'Selectividad de bordes', refresh:'Redibujos por segundo', spin:'Rotación', windows:'Acordes', chordNotes:'Notas por acorde', shimmer:'Batimiento', air:'Soplo de los grises' },
+  o: {
+    axis: { log:'Logarítmico', lin:'Lineal' },
+    what: { diff:'Distinto del fondo', light:'Zonas claras', dark:'Zonas oscuras' },
+    source: { pixel:'Píxeles decodificados', file:'Archivo comprimido' },
+    scan: { rows:'Filas', serp:'Serpentina', cols:'Columnas', diag:'Diagonales', spiral:'Espiral', hilbert:'Curva de Hilbert' },
+    chan: { rgb:'RGB intercalados', rgba:'RGBA intercalados', r:'Solo rojo', g:'Solo verde', b:'Solo azul', lum:'Luminancia' },
+    fmt: { u8:'8 bits sin signo', s16:'16 bits con signo', bit:'1 bit por muestra' },
+    scale: { penta:'Pentatónica mayor', minpenta:'Pentatónica menor', maj:'Mayor', min:'Menor natural', dorian:'Dórica', blues:'Blues', whole:'Tonos enteros', hira:'Hirajoshi', chrom:'Cromática' }
+  },
+  m: {
+    spectral: { n:'Espectrograma inverso', s:'Espectro', d:'La imagen se lee como un espectrograma: cada fila es un oscilador de frecuencia fija y el brillo decide su volumen en cada instante. En la pantalla Espectro la imagen reaparece.', map:['X → tiempo','Y → frecuencia (arriba = agudo)','Brillo → volumen','Rojo / azul → izquierda / derecha'] },
+    databend: { n:'Bytes como muestras', s:'Bytes', d:'Sin interpretación: los números de los píxeles se convierten directamente en las muestras de la onda, en el orden de lectura elegido. Con «Archivo comprimido» suenan los bytes del PNG o JPEG: casi ruido blanco, porque la compresión elimina toda redundancia.', map:['Byte 0–255 → muestra de −1 a +1','Orden de lectura → secuencia en el tiempo','Muestreo → velocidad y altura'] },
+    carillon: { n:'Caja de música', s:'Carillón', d:'La imagen se convierte en el rollo de una caja de música: las columnas son los pasos y las filas los grados de la escala. Suenan las celdas que se distinguen del fondo, es decir, del color más frecuente: un dibujo sobre papel blanco hace sonar sus líneas, no el papel.', map:['Columna → paso','Fila → grado de la escala','Diferencia con el fondo → volumen','Color → timbre y posición estéreo'] },
+    melodia: { n:'Melodía cromática', s:'Melodía', d:'El círculo cromático se extiende sobre la escala: el rojo es la tónica y, al pasar por amarillo, verde, azul y violeta, se sube de grado. Las zonas sin color suenan según su brillo, con un timbre más oscuro. Las celdas iguales al fondo son silencios.', map:['Tono → grado de la escala','Claro / oscuro → octava','Igual que el fondo → silencio','Posición X → estéreo'] },
+    wavetable: { n:'Tabla de ondas', s:'Wavetable', d:'Cada fila de la imagen es un único ciclo de onda: el perfil de brillo de izquierda a derecha es la forma de la onda. El sonido recorre las filas de arriba abajo, transformándose de una forma a otra.', map:['Perfil de una fila → forma de un ciclo','Y → tiempo','Detalle fino → armónicos agudos'] },
+    rgb: { n:'Tres voces RGB', s:'RGB', d:'Tres osciladores siguen, columna a columna, la franja más consistente de rojo, de verde y de azul. Cuanto más arriba está, más aguda es la nota; cuanto más color hay, más fuerte suena.', map:['Rojo → diente de sierra, izquierda','Verde → triangular, centro','Azul → sinusoide, derecha','Altura del color → nota'] },
+    ritmo: { n:'Batería de bordes', s:'Batería', d:'Un filtro de Sobel encuentra los bordes y la imagen se divide en tres franjas: los bordes de arriba tocan el charles, los del centro la caja y los de abajo el bombo. El color medio de cada columna elige la nota del bajo.', map:['Bordes arriba → charles','Bordes en el centro → caja','Bordes abajo → bombo','Tono → nota del bajo'] },
+    xy: { n:'Osciloscopio XY', s:'XY', d:'Los bordes se ordenan en un recorrido y suenan en estéreo: canal izquierdo = X, derecho = Y. Un osciloscopio en modo XY vuelve a dibujar la imagen. La repetición del recorrido es la nota que oyes.', map:['X del borde → canal izquierdo','Y del borde → canal derecho','Redibujos por segundo → altura'] },
+    accordo: { n:'Acorde cromático', s:'Acorde', d:'Los tonos de cada franja vertical se cuentan en doce sectores, uno por semitono, con el rojo como tónica. Los colores más presentes forman un acorde sostenido que cambia a lo largo de la imagen. Un solo tono da la misma nota en varias octavas.', map:['Tono (12 sectores) → semitono','Cantidad de color → volumen','Brillo → octava','Grises → soplo'] }
+  }
+},
+fr: {
+  name: 'Français',
+  notes: ['Do','Do♯','Ré','Ré♯','Mi','Fa','Fa♯','Sol','Sol♯','La','La♯','Si'],
+  ui: { tagline:'Sans réseau de neurones', source:'Source', monitor:'Moniteur', params:'Paramètres', manual:'Manuel', open:'Ouvrir…', examples:'Exemples', exSunset:'Coucher de soleil', exShapes:'Géométries', exWord:'Lettrage', word:'SON', drop:'glissez ou collez une image', spec:'Spectre', wave:'Onde', xy:'XY', press:'APPUYEZ SUR ▶ POUR ÉCOUTER', loop:'Boucle', vol:'Vol', saveWav:'Enregistrer WAV', saveAll:'Tout enregistrer', reset:'Réinitialiser', adv:'Avancés', close:'Fermer', lang:'Langue', on:'Activé', off:'Désactivé' },
+  tip: { open:'Ouvrir une image (Ctrl+O)', saveWav:'Enregistrer le son de ce mode (Ctrl+S)', saveAll:'Enregistrer les sons des neuf modes dans un zip (Ctrl+Maj+S)', reset:'Rétablir les paramètres de ce mode à leurs valeurs initiales', adv:'Afficher ou masquer les paramètres avancés', manual:'Comment fonctionne ce mode', rew:'Revenir au début', play:'Lecture / pause (espace)', stop:'Arrêter', seek:'Cliquez pour vous déplacer dans le son', knob:'glissez vers le haut ou le bas, molette ou flèches ; double-clic = valeur initiale', examples:"Images d'exemple", mode:'{0} (touche {1})' },
+  st: { prep:'Préparation…', calc:'CALCUL…', error:'ERREUR', silence:'SILENCE', archive:'ARCHIVE : {0}…', archiveReady:'ARCHIVE PRÊTE · {0} FICHIERS' },
+  msg: { silent:'Avec cette image, le mode {0} ne produit aucun son : essayez un autre mode ou modifiez les paramètres', notImage:"Ce fichier n'est pas une image", cantRead:'Impossible de lire cette image', cantOpen:"Impossible d'ouvrir {0}", saved:'Enregistré : {0}', downloaded:'Téléchargé : {0}', delivered:'Fichier remis : {0}', cancelled:'Enregistrement annulé', saveFailed:"L'enregistrement a échoué", saveNA:"L'enregistrement n'est pas disponible dans cette vue", tooBig:'Image trop volumineuse : {0}' },
+  scr: { silent:'silence : avec cette image, ce mode ne produit aucun son', analysing:'analyse du spectre…', xy:'gauche = X · droite = Y', wave:'ambre = gauche · cyan = droite' },
+  mk: { endTail:"fin de l'image · queue", repeats:'se répète', tail:'queue' },
+  cur: { tailRing:'queue : les dernières notes résonnent', note:'note', rest:'silence (identique au fond)', noColour:'sans couleur', chord:'accord', oneHue:'une seule teinte : octaves seulement', onlyAir:'aucune couleur : souffle seul' },
+  info: { bytes:'{0} octets lus', points:'{0} points' },
+  cat: { waves:'Ondes', binary:'Binaire', pixel:'Pixels', colour:'Couleur', shape:'Forme' },
+  grp: { time:'Temps', pitch:'Hauteur', read:'Lecture', tone:'Timbre' },
+  p: { dur:'Durée', bands:'Bandes', fmin:'Fréquence minimale', fmax:'Fréquence maximale', axis:'Axe des fréquences', gamma:'Contraste', stereo:'Stéréo par la couleur', what:'Ce qui sonne', source:'Source des octets', size:'Résolution', scan:'Ordre de lecture', chan:'Canaux', fmt:"Format d'échantillon", rate:'Échantillonnage', start:'Point de départ', maxDur:'Durée maximale', steps:'Pas', rows:'Notes', scale:'Gamme', low:'Note la plus grave', bpm:'Tempo', thresh:'Seuil', poly:'Notes par pas', noteLen:'Durée de note', gw:'Cellules en largeur', gh:'Cellules en hauteur', tonic:'Tonique', octaves:'Octaves', legato:'Legato', bass:'Basse', frames:'Lignes lues', note:'Note', unison:'Voix', detune:'Désaccord', smooth:'Douceur', ping:'Aller-retour', sub:'Octave inférieure', cols:'Colonnes lues', range:'Étendue', glide:'Portamento', cont:'Continuité', loops:'Répétitions', swing:'Swing', bassline:'Ligne de basse', detail:'Points', edge:'Sélectivité des contours', refresh:'Tracés par seconde', spin:'Rotation', windows:'Accords', chordNotes:'Notes par accord', shimmer:'Battements', air:'Souffle des gris' },
+  o: {
+    axis: { log:'Logarithmique', lin:'Linéaire' },
+    what: { diff:'Différent du fond', light:'Zones claires', dark:'Zones sombres' },
+    source: { pixel:'Pixels décodés', file:'Fichier compressé' },
+    scan: { rows:'Lignes', serp:'Serpentin', cols:'Colonnes', diag:'Diagonales', spiral:'Spirale', hilbert:'Courbe de Hilbert' },
+    chan: { rgb:'RVB entrelacés', rgba:'RVBA entrelacés', r:'Rouge seul', g:'Vert seul', b:'Bleu seul', lum:'Luminance' },
+    fmt: { u8:'8 bits non signé', s16:'16 bits signé', bit:'1 bit par échantillon' },
+    scale: { penta:'Pentatonique majeure', minpenta:'Pentatonique mineure', maj:'Majeure', min:'Mineure naturelle', dorian:'Dorien', blues:'Blues', whole:'Par tons', hira:'Hirajoshi', chrom:'Chromatique' }
+  },
+  m: {
+    spectral: { n:'Spectrogramme inversé', s:'Spectre', d:"L'image est lue comme un spectrogramme : chaque ligne est un oscillateur à fréquence fixe et la luminosité règle son volume à chaque instant. Sur l'écran Spectre, l'image réapparaît.", map:['X → temps','Y → fréquence (haut = aigu)','Luminosité → volume','Rouge / bleu → gauche / droite'] },
+    databend: { n:'Octets en échantillons', s:'Octets', d:"Aucune interprétation : les nombres des pixels deviennent directement les échantillons de l'onde, dans l'ordre de lecture choisi. Avec « Fichier compressé », on joue les octets du PNG ou du JPEG : presque du bruit blanc, car la compression supprime toute redondance.", map:['Octet 0–255 → échantillon de −1 à +1','Ordre de lecture → séquence dans le temps','Échantillonnage → vitesse et hauteur'] },
+    carillon: { n:'Boîte à musique', s:'Carillon', d:"L'image devient le rouleau d'une boîte à musique : les colonnes sont les pas, les lignes les degrés de la gamme. Les cellules qui se distinguent du fond, c'est-à-dire de la couleur la plus répandue, sonnent : un dessin sur papier blanc fait sonner ses traits, pas le papier.", map:['Colonne → pas','Ligne → degré de la gamme','Différence avec le fond → volume','Couleur → timbre et position stéréo'] },
+    melodia: { n:'Mélodie chromatique', s:'Mélodie', d:"Le cercle chromatique est déployé sur la gamme : le rouge est la tonique et, en passant par le jaune, le vert, le bleu et le violet, on monte de degré. Les zones sans couleur sonnent selon leur luminosité, avec un timbre plus sombre. Les cellules identiques au fond sont des silences.", map:['Teinte → degré de la gamme','Clair / sombre → octave','Identique au fond → silence','Position X → stéréo'] },
+    wavetable: { n:"Table d'ondes", s:'Wavetable', d:"Chaque ligne de l'image est un seul cycle d'onde : le profil de luminosité de gauche à droite est la forme de l'onde. Le son parcourt les lignes de haut en bas, en passant d'une forme à l'autre.", map:["Profil d'une ligne → forme d'un cycle",'Y → temps','Détails fins → harmoniques aiguës'] },
+    rgb: { n:'Trois voix RVB', s:'RVB', d:"Trois oscillateurs suivent, colonne par colonne, la bande la plus consistante de rouge, de vert et de bleu. Plus elle est haute, plus la note est aiguë ; plus il y a de couleur, plus le son est fort.", map:['Rouge → dent de scie, à gauche','Vert → triangle, au centre','Bleu → sinusoïde, à droite','Hauteur de la couleur → note'] },
+    ritmo: { n:'Batterie des contours', s:'Batterie', d:"Un filtre de Sobel trouve les contours et l'image est divisée en trois bandes : les contours du haut jouent le charleston, ceux du milieu la caisse claire, ceux du bas la grosse caisse. La couleur moyenne de chaque colonne choisit la note de basse.", map:['Contours en haut → charleston','Contours au milieu → caisse claire','Contours en bas → grosse caisse','Teinte → note de basse'] },
+    xy: { n:'Oscilloscope XY', s:'XY', d:"Les contours sont ordonnés en un parcours et joués en stéréo : canal gauche = X, droit = Y. Un oscilloscope en mode XY redessine l'image. La répétition du parcours est la note que vous entendez.", map:['X du contour → canal gauche','Y du contour → canal droit','Tracés par seconde → hauteur'] },
+    accordo: { n:'Accord chromatique', s:'Accord', d:"Les teintes de chaque bande verticale sont comptées en douze secteurs, un par demi-ton, le rouge étant la tonique. Les couleurs les plus présentes forment un accord tenu qui change le long de l'image. Une seule teinte donne la même note sur plusieurs octaves.", map:['Teinte (12 secteurs) → demi-ton','Quantité de couleur → volume','Luminosité → octave','Gris → souffle'] }
+  }
+},
+de: {
+  name: 'Deutsch',
+  notes: ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','H'],
+  ui: { tagline:'Ohne neuronales Netz', source:'Quelle', monitor:'Monitor', params:'Parameter', manual:'Handbuch', open:'Öffnen…', examples:'Beispiele', exSunset:'Sonnenuntergang', exShapes:'Formen', exWord:'Schriftzug', word:'KLANG', drop:'Bild hierher ziehen oder einfügen', spec:'Spektrum', wave:'Welle', xy:'XY', press:'▶ DRÜCKEN ZUM ANHÖREN', loop:'Schleife', vol:'Vol', saveWav:'WAV speichern', saveAll:'Alles speichern', reset:'Zurücksetzen', adv:'Erweitert', close:'Schließen', lang:'Sprache', on:'Ein', off:'Aus' },
+  tip: { open:'Bild öffnen (Strg+O)', saveWav:'Klang dieses Modus speichern (Strg+S)', saveAll:'Klänge aller neun Modi als Zip speichern (Strg+Umschalt+S)', reset:'Parameter dieses Modus auf die Ausgangswerte zurücksetzen', adv:'Erweiterte Parameter ein- oder ausblenden', manual:'So funktioniert dieser Modus', rew:'Zum Anfang', play:'Wiedergabe / Pause (Leertaste)', stop:'Stopp', seek:'Klicken, um im Klang zu springen', knob:'nach oben oder unten ziehen, Mausrad oder Pfeiltasten; Doppelklick = Ausgangswert', examples:'Beispielbilder', mode:'{0} (Taste {1})' },
+  st: { prep:'Vorbereitung…', calc:'BERECHNUNG…', error:'FEHLER', silence:'STILLE', archive:'ARCHIV: {0}…', archiveReady:'ARCHIV FERTIG · {0} DATEIEN' },
+  msg: { silent:'Mit diesem Bild erzeugt der Modus {0} keinen Klang: Probiere einen anderen Modus oder ändere die Parameter', notImage:'Diese Datei ist kein Bild', cantRead:'Dieses Bild kann nicht gelesen werden', cantOpen:'{0} kann nicht geöffnet werden', saved:'Gespeichert: {0}', downloaded:'Heruntergeladen: {0}', delivered:'Datei übergeben: {0}', cancelled:'Speichern abgebrochen', saveFailed:'Speichern fehlgeschlagen', saveNA:'Speichern ist in dieser Ansicht nicht verfügbar', tooBig:'Bild zu groß: {0}' },
+  scr: { silent:'Stille: Mit diesem Bild erzeugt dieser Modus keinen Klang', analysing:'Spektrum wird analysiert…', xy:'links = X · rechts = Y', wave:'Bernstein = links · Cyan = rechts' },
+  mk: { endTail:'Bildende · Ausklang', repeats:'wiederholt sich', tail:'Ausklang' },
+  cur: { tailRing:'Ausklang: Die letzten Noten klingen nach', note:'Note', rest:'Pause (wie der Hintergrund)', noColour:'ohne Farbe', chord:'Akkord', oneHue:'nur ein Farbton: nur Oktaven', onlyAir:'keine Farbe: nur Rauschen' },
+  info: { bytes:'{0} Bytes gelesen', points:'{0} Punkte' },
+  cat: { waves:'Wellen', binary:'Binär', pixel:'Pixel', colour:'Farbe', shape:'Form' },
+  grp: { time:'Zeit', pitch:'Tonhöhe', read:'Lesen', tone:'Klangfarbe' },
+  p: { dur:'Dauer', bands:'Bänder', fmin:'Tiefste Frequenz', fmax:'Höchste Frequenz', axis:'Frequenzachse', gamma:'Kontrast', stereo:'Stereo aus Farbe', what:'Was klingt', source:'Byte-Quelle', size:'Auflösung', scan:'Lesereihenfolge', chan:'Kanäle', fmt:'Sample-Format', rate:'Abtastrate', start:'Startpunkt', maxDur:'Maximale Dauer', steps:'Schritte', rows:'Noten', scale:'Tonleiter', low:'Tiefste Note', bpm:'Tempo', thresh:'Schwelle', poly:'Noten pro Schritt', noteLen:'Notenlänge', gw:'Zellen quer', gh:'Zellen hoch', tonic:'Grundton', octaves:'Oktaven', legato:'Legato', bass:'Bass', frames:'Gelesene Zeilen', note:'Note', unison:'Stimmen', detune:'Verstimmung', smooth:'Weichheit', ping:'Hin und zurück', sub:'Oktave darunter', cols:'Gelesene Spalten', range:'Tonumfang', glide:'Portamento', cont:'Kontinuität', loops:'Wieder­holungen', swing:'Swing', bassline:'Basslinie', detail:'Punkte', edge:'Kantenschärfe', refresh:'Durchläufe pro Sekunde', spin:'Drehung', windows:'Akkorde', chordNotes:'Noten pro Akkord', shimmer:'Schwebung', air:'Rauschen aus Grau' },
+  o: {
+    axis: { log:'Logarithmisch', lin:'Linear' },
+    what: { diff:'Kontrast zum Grund', light:'Helle Bereiche', dark:'Dunkle Bereiche' },
+    source: { pixel:'Dekodierte Pixel', file:'Komprimierte Datei' },
+    scan: { rows:'Zeilen', serp:'Schlangenlinie', cols:'Spalten', diag:'Diagonalen', spiral:'Spirale', hilbert:'Hilbert-Kurve' },
+    chan: { rgb:'RGB verschachtelt', rgba:'RGBA verschachtelt', r:'Nur Rot', g:'Nur Grün', b:'Nur Blau', lum:'Luminanz' },
+    fmt: { u8:'8 Bit ohne Vorzeichen', s16:'16 Bit mit Vorzeichen', bit:'1 Bit pro Sample' },
+    scale: { penta:'Dur-Pentatonik', minpenta:'Moll-Pentatonik', maj:'Dur', min:'Natürliches Moll', dorian:'Dorisch', blues:'Blues', whole:'Ganzton', hira:'Hirajoshi', chrom:'Chromatisch' }
+  },
+  m: {
+    spectral: { n:'Inverses Spektrogramm', s:'Spektrum', d:'Das Bild wird als Spektrogramm gelesen: Jede Zeile ist ein Oszillator mit fester Frequenz, und die Helligkeit bestimmt in jedem Augenblick seine Lautstärke. Auf dem Spektrum-Schirm erscheint das Bild wieder.', map:['X → Zeit','Y → Frequenz (oben = hoch)','Helligkeit → Lautstärke','Rot / Blau → links / rechts'] },
+    databend: { n:'Bytes als Samples', s:'Bytes', d:'Keine Deutung: Die Zahlen der Pixel werden direkt zu den Samples der Welle, in der gewählten Lesereihenfolge. Mit «Komprimierte Datei» erklingen die Bytes der PNG- oder JPEG-Datei: fast weißes Rauschen, weil die Kompression jede Redundanz entfernt.', map:['Byte 0–255 → Sample von −1 bis +1','Lesereihenfolge → zeitliche Abfolge','Abtastrate → Tempo und Tonhöhe'] },
+    carillon: { n:'Raster-Spieluhr', s:'Spieluhr', d:'Das Bild wird zur Walze einer Spieluhr: Spalten sind die Schritte, Zeilen die Stufen der Tonleiter. Es klingen die Zellen, die sich vom Hintergrund abheben, also von der häufigsten Farbe: Eine Zeichnung auf weißem Papier lässt ihre Linien erklingen, nicht das Papier.', map:['Spalte → Schritt','Zeile → Tonleiterstufe','Abstand zum Hintergrund → Lautstärke','Farbe → Klangfarbe und Stereoposition'] },
+    melodia: { n:'Farbmelodie', s:'Melodie', d:'Der Farbkreis wird über die Tonleiter gelegt: Rot ist der Grundton, und über Gelb, Grün, Blau und Violett steigt man Stufe um Stufe. Farblose Bereiche klingen nach ihrer Helligkeit, mit dunklerer Klangfarbe. Zellen, die dem Hintergrund gleichen, sind Pausen.', map:['Farbton → Tonleiterstufe','Hell / dunkel → Oktave','Wie der Hintergrund → Pause','X-Position → Stereo'] },
+    wavetable: { n:'Wavetable', s:'Wavetable', d:'Jede Bildzeile ist ein einzelner Wellenzyklus: Das Helligkeitsprofil von links nach rechts ist die Form der Welle. Der Klang wandert die Zeilen hinab und geht von einer Form in die nächste über.', map:['Profil einer Zeile → Form eines Zyklus','Y → Zeit','Feine Details → hohe Obertöne'] },
+    rgb: { n:'Drei RGB-Stimmen', s:'RGB', d:'Drei Oszillatoren folgen Spalte für Spalte dem kräftigsten Band aus Rot, Grün und Blau. Je höher es liegt, desto höher die Note; je mehr Farbe, desto lauter.', map:['Rot → Sägezahn, links','Grün → Dreieck, Mitte','Blau → Sinus, rechts','Höhe der Farbe → Note'] },
+    ritmo: { n:'Schlagzeug aus Kanten', s:'Schlagzeug', d:'Ein Sobel-Filter findet die Kanten, und das Bild wird in drei Bänder geteilt: Kanten oben spielen die Hi-Hat, in der Mitte die Snare, unten die Bassdrum. Die mittlere Farbe jeder Spalte wählt die Bassnote.', map:['Kanten oben → Hi-Hat','Kanten in der Mitte → Snare','Kanten unten → Bassdrum','Farbton → Bassnote'] },
+    xy: { n:'XY-Oszilloskop', s:'XY', d:'Die Kanten werden zu einem Pfad geordnet und in Stereo gespielt: linker Kanal = X, rechter = Y. Ein Oszilloskop im XY-Modus zeichnet das Bild neu. Die Wiederholung des Pfads ist die Note, die du hörst.', map:['X der Kante → linker Kanal','Y der Kante → rechter Kanal','Durchläufe pro Sekunde → Tonhöhe'] },
+    accordo: { n:'Farbakkord', s:'Akkord', d:'Die Farbtöne jedes senkrechten Streifens werden in zwölf Sektoren gezählt, einer pro Halbton, mit Rot als Grundton. Die häufigsten Farben bilden einen gehaltenen Akkord, der sich über das Bild hinweg ändert. Ein einziger Farbton ergibt dieselbe Note über mehrere Oktaven.', map:['Farbton (12 Sektoren) → Halbton','Farbmenge → Lautstärke','Helligkeit → Oktave','Grau → Rauschen'] }
+  }
+},
+pt: {
+  name: 'Português',
+  notes: ['Dó','Dó♯','Ré','Ré♯','Mi','Fá','Fá♯','Sol','Sol♯','Lá','Lá♯','Si'],
+  ui: { tagline:'Sem rede neural', source:'Fonte', monitor:'Monitor', params:'Parâmetros', manual:'Manual', open:'Abrir…', examples:'Exemplos', exSunset:'Pôr do sol', exShapes:'Geometrias', exWord:'Letreiro', word:'SOM', drop:'arraste ou cole uma imagem', spec:'Espectro', wave:'Onda', xy:'XY', press:'PRESSIONE ▶ PARA OUVIR', loop:'Repetir', vol:'Vol', saveWav:'Salvar WAV', saveAll:'Salvar tudo', reset:'Redefinir', adv:'Avançados', close:'Fechar', lang:'Idioma', on:'Ligado', off:'Desligado' },
+  tip: { open:'Abrir uma imagem (Ctrl+O)', saveWav:'Salvar o som deste modo (Ctrl+S)', saveAll:'Salvar os sons dos nove modos em um zip (Ctrl+Shift+S)', reset:'Voltar os parâmetros deste modo aos valores iniciais', adv:'Mostrar ou ocultar os parâmetros avançados', manual:'Como este modo funciona', rew:'Voltar ao início', play:'Reproduzir / pausar (espaço)', stop:'Parar', seek:'Clique para se mover dentro do som', knob:'arraste para cima ou para baixo, use a roda ou as setas; duplo clique = valor inicial', examples:'Imagens de exemplo', mode:'{0} (tecla {1})' },
+  st: { prep:'Preparando…', calc:'CALCULANDO…', error:'ERRO', silence:'SILÊNCIO', archive:'PACOTE: {0}…', archiveReady:'PACOTE PRONTO · {0} ARQUIVOS' },
+  msg: { silent:'Com esta imagem o modo {0} não produz som: tente outro modo ou altere os parâmetros', notImage:'Este arquivo não é uma imagem', cantRead:'Não foi possível ler esta imagem', cantOpen:'Não foi possível abrir {0}', saved:'Salvo: {0}', downloaded:'Baixado: {0}', delivered:'Arquivo entregue: {0}', cancelled:'Salvamento cancelado', saveFailed:'Não foi possível salvar o arquivo', saveNA:'Salvar não está disponível nesta visualização', tooBig:'Imagem grande demais: {0}' },
+  scr: { silent:'silêncio: com esta imagem este modo não produz som', analysing:'analisando o espectro…', xy:'esquerdo = X · direito = Y', wave:'âmbar = esquerdo · ciano = direito' },
+  mk: { endTail:'fim da imagem · cauda', repeats:'repete', tail:'cauda' },
+  cur: { tailRing:'cauda: as últimas notas continuam soando', note:'nota', rest:'pausa (igual ao fundo)', noColour:'sem cor', chord:'acorde', oneHue:'um só matiz: apenas oitavas', onlyAir:'sem cor: apenas sopro' },
+  info: { bytes:'{0} bytes lidos', points:'{0} pontos' },
+  cat: { waves:'Ondas', binary:'Binário', pixel:'Pixels', colour:'Cor', shape:'Forma' },
+  grp: { time:'Tempo', pitch:'Altura', read:'Leitura', tone:'Timbre' },
+  p: { dur:'Duração', bands:'Bandas', fmin:'Frequência mínima', fmax:'Frequência máxima', axis:'Eixo de frequências', gamma:'Contraste', stereo:'Estéreo pela cor', what:'O que soa', source:'Origem dos bytes', size:'Resolução', scan:'Ordem de leitura', chan:'Canais', fmt:'Formato da amostra', rate:'Amostragem', start:'Ponto de partida', maxDur:'Duração máxima', steps:'Passos', rows:'Notas', scale:'Escala', low:'Nota mais grave', bpm:'Andamento', thresh:'Limiar', poly:'Notas por passo', noteLen:'Duração da nota', gw:'Células na largura', gh:'Células na altura', tonic:'Tônica', octaves:'Oitavas', legato:'Legato', bass:'Baixo', frames:'Linhas lidas', note:'Nota', unison:'Vozes', detune:'Desafinação', smooth:'Suavidade', ping:'Ida e volta', sub:'Oitava abaixo', cols:'Colunas lidas', range:'Extensão', glide:'Portamento', cont:'Continuidade', loops:'Repetições', swing:'Swing', bassline:'Linha de baixo', detail:'Pontos', edge:'Seletividade das bordas', refresh:'Redesenhos por segundo', spin:'Rotação', windows:'Acordes', chordNotes:'Notas por acorde', shimmer:'Batimento', air:'Sopro dos cinzas' },
+  o: {
+    axis: { log:'Logarítmico', lin:'Linear' },
+    what: { diff:'Diferente do fundo', light:'Áreas claras', dark:'Áreas escuras' },
+    source: { pixel:'Pixels decodificados', file:'Arquivo comprimido' },
+    scan: { rows:'Linhas', serp:'Serpentina', cols:'Colunas', diag:'Diagonais', spiral:'Espiral', hilbert:'Curva de Hilbert' },
+    chan: { rgb:'RGB intercalados', rgba:'RGBA intercalados', r:'Só vermelho', g:'Só verde', b:'Só azul', lum:'Luminância' },
+    fmt: { u8:'8 bits sem sinal', s16:'16 bits com sinal', bit:'1 bit por amostra' },
+    scale: { penta:'Pentatônica maior', minpenta:'Pentatônica menor', maj:'Maior', min:'Menor natural', dorian:'Dórica', blues:'Blues', whole:'Tons inteiros', hira:'Hirajoshi', chrom:'Cromática' }
+  },
+  m: {
+    spectral: { n:'Espectrograma inverso', s:'Espectro', d:'A imagem é lida como um espectrograma: cada linha é um oscilador de frequência fixa e o brilho define o seu volume a cada instante. Na tela Espectro a imagem reaparece.', map:['X → tempo','Y → frequência (em cima = agudo)','Brilho → volume','Vermelho / azul → esquerda / direita'] },
+    databend: { n:'Bytes como amostras', s:'Bytes', d:'Sem interpretação: os números dos pixels tornam-se diretamente as amostras da onda, na ordem de leitura escolhida. Com «Arquivo comprimido» soam os bytes do PNG ou JPEG: quase ruído branco, porque a compressão remove toda a redundância.', map:['Byte 0–255 → amostra de −1 a +1','Ordem de leitura → sequência no tempo','Amostragem → velocidade e altura'] },
+    carillon: { n:'Caixa de música', s:'Carrilhão', d:'A imagem vira o rolo de uma caixa de música: as colunas são os passos e as linhas os graus da escala. Soam as células que se distinguem do fundo, isto é, da cor mais frequente: um desenho em papel branco faz soar as suas linhas, não o papel.', map:['Coluna → passo','Linha → grau da escala','Diferença para o fundo → volume','Cor → timbre e posição estéreo'] },
+    melodia: { n:'Melodia cromática', s:'Melodia', d:'O círculo cromático é estendido sobre a escala: o vermelho é a tônica e, passando por amarelo, verde, azul e violeta, sobe-se de grau. As áreas sem cor soam conforme o brilho, com timbre mais escuro. As células iguais ao fundo são pausas.', map:['Matiz → grau da escala','Claro / escuro → oitava','Igual ao fundo → pausa','Posição X → estéreo'] },
+    wavetable: { n:'Tabela de ondas', s:'Wavetable', d:'Cada linha da imagem é um único ciclo de onda: o perfil de brilho da esquerda para a direita é a forma da onda. O som percorre as linhas de cima para baixo, transformando-se de uma forma em outra.', map:['Perfil de uma linha → forma de um ciclo','Y → tempo','Detalhes finos → harmônicos agudos'] },
+    rgb: { n:'Três vozes RGB', s:'RGB', d:'Três osciladores seguem, coluna a coluna, a faixa mais consistente de vermelho, de verde e de azul. Quanto mais alta, mais aguda a nota; quanto mais cor, mais forte o som.', map:['Vermelho → dente de serra, esquerda','Verde → triangular, centro','Azul → senoide, direita','Altura da cor → nota'] },
+    ritmo: { n:'Bateria das bordas', s:'Bateria', d:'Um filtro de Sobel encontra as bordas e a imagem é dividida em três faixas: as bordas de cima tocam o chimbal, as do meio a caixa, as de baixo o bumbo. A cor média de cada coluna escolhe a nota do baixo.', map:['Bordas em cima → chimbal','Bordas no meio → caixa','Bordas embaixo → bumbo','Matiz → nota do baixo'] },
+    xy: { n:'Osciloscópio XY', s:'XY', d:'As bordas são ordenadas em um percurso e tocadas em estéreo: canal esquerdo = X, direito = Y. Um osciloscópio em modo XY redesenha a imagem. A repetição do percurso é a nota que você ouve.', map:['X da borda → canal esquerdo','Y da borda → canal direito','Redesenhos por segundo → altura'] },
+    accordo: { n:'Acorde cromático', s:'Acorde', d:'Os matizes de cada faixa vertical são contados em doze setores, um por semitom, com o vermelho como tônica. As cores mais presentes formam um acorde sustentado que muda ao longo da imagem. Um só matiz dá a mesma nota em várias oitavas.', map:['Matiz (12 setores) → semitom','Quantidade de cor → volume','Brilho → oitava','Cinzas → sopro'] }
+  }
+}
+};
+let LANG = 'en';
+/* tr('ui.open') → testo nella lingua corrente, con ripiego sull'inglese; {0}, {1} vengono sostituiti dagli argomenti */
+function tr(key, ...args) {
+  const get = l => key.split('.').reduce((o, k) => (o == null ? o : o[k]), I18N[l]);
+  let s = get(LANG); if (s == null) s = get('en'); if (s == null) return key;
+  return typeof s === 'string' && args.length ? s.replace(/\{(\d)\}/g, (_, i) => args[i]) : s;
+}
+function detectLang() {
+  for (const l of navigator.languages || [navigator.language || 'en']) { const c = String(l).slice(0, 2).toLowerCase(); if (I18N[c]) return c; }
+  return 'en';
+}
+
+
+/* ======================= costanti e utilità ======================= */
+const SR = 44100, TAU = Math.PI * 2;
+const SIN_N = 8192, SIN = new Float32Array(SIN_N + 1);
+for (let i = 0; i <= SIN_N; i++) SIN[i] = Math.sin(TAU * i / SIN_N);
+const $ = s => document.querySelector(s);
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
+const noteName = m => tr('notes')[((m % 12) + 12) % 12] + (Math.floor(m / 12) - 1);
+function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+function rgb2hsv(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn; let h = 0;
+  if (d > 1e-6) { if (mx === r) h = ((g - b) / d) % 6; else if (mx === g) h = (b - r) / d + 2; else h = (r - g) / d + 4; h /= 6; if (h < 0) h += 1; }
+  return [h, mx ? d / mx : 0, mx];
+}
+const lumOf = (d, i) => (0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2]) / 255;
+function panGains(p) { const a = (clamp(p, -1, 1) + 1) * Math.PI / 4; return [Math.cos(a), Math.sin(a)]; }
+function newOut(dur) { const N = Math.max(64, Math.round(dur * SR)); return { L: new Float32Array(N), R: new Float32Array(N), dur: N / SR }; }
+const fmtT = t => { t = Math.max(0, t); const m = Math.floor(t / 60), s = t - m * 60; return String(m).padStart(2, '0') + ':' + s.toFixed(1).padStart(4, '0'); };
+const LOCALES = { en:'en-US', it:'it-IT', es:'es-ES', fr:'fr-FR', de:'de-DE', pt:'pt-BR' };
+const nf = (v, d = 0) => v.toLocaleString(LOCALES[LANG] || 'en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+
+const SCALE = { penta:[0,2,4,7,9], minpenta:[0,3,5,7,10], maj:[0,2,4,5,7,9,11], min:[0,2,3,5,7,8,10], dorian:[0,2,3,5,7,9,10], blues:[0,3,5,6,7,10], whole:[0,2,4,6,8,10], hira:[0,2,3,7,8], chrom:[0,1,2,3,4,5,6,7,8,9,10,11] };
+
+/* ======================= immagine sorgente ======================= */
+let SRC = null, FILE_BYTES = null, IMG_NAME = 'tramonto';
+const gridCache = new Map();
+function grid(w, h) {
+  w = Math.max(1, w | 0); h = Math.max(1, h | 0);
+  const key = w + 'x' + h; if (gridCache.has(key)) return gridCache.get(key);
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const x = c.getContext('2d', { willReadFrequently: true }); x.imageSmoothingEnabled = true; x.imageSmoothingQuality = 'high';
+  x.drawImage(SRC, 0, 0, w, h);
+  const g = { w, h, d: x.getImageData(0, 0, w, h).data }; gridCache.set(key, g); return g;
+}
+function gridFit(maxSide) {
+  const ar = SRC.width / SRC.height;
+  return ar >= 1 ? grid(maxSide, Math.max(1, Math.round(maxSide / ar))) : grid(Math.max(1, Math.round(maxSide * ar)), maxSide);
+}
+function grayOf(g) { const o = new Float32Array(g.w * g.h); for (let i = 0; i < o.length; i++) o[i] = lumOf(g.d, i * 4); return o; }
+function sobel(gray, w, h) {
+  const m = new Float32Array(w * h);
+  const at = (x, y) => gray[clamp(y, 0, h - 1) * w + clamp(x, 0, w - 1)];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const gx = at(x+1,y-1) + 2*at(x+1,y) + at(x+1,y+1) - at(x-1,y-1) - 2*at(x-1,y) - at(x-1,y+1);
+    const gy = at(x-1,y+1) + 2*at(x,y+1) + at(x+1,y+1) - at(x-1,y-1) - 2*at(x,y-1) - at(x+1,y-1);
+    m[y * w + x] = Math.sqrt(gx * gx + gy * gy);
+  }
+  return m;
+}
+function d2xy(n, d) {
+  let x = 0, y = 0, t = d;
+  for (let s = 1; s < n; s *= 2) {
+    const rx = 1 & (t >> 1), ry = 1 & (t ^ rx);
+    if (ry === 0) { if (rx === 1) { x = s - 1 - x; y = s - 1 - y; } const tmp = x; x = y; y = tmp; }
+    x += s * rx; y += s * ry; t >>= 2;
+  }
+  return [x, y];
+}
+function scanOrder(w, h, kind) {
+  const out = new Uint32Array(w * h); let k = 0;
+  if (kind === 'cols') { for (let x = 0; x < w; x++) for (let y = 0; y < h; y++) out[k++] = y * w + x; }
+  else if (kind === 'serp') { for (let y = 0; y < h; y++) for (let i = 0; i < w; i++) out[k++] = y * w + (y % 2 ? w - 1 - i : i); }
+  else if (kind === 'diag') { for (let s = 0; s <= w + h - 2; s++) for (let y = Math.max(0, s - w + 1); y <= Math.min(h - 1, s); y++) out[k++] = y * w + (s - y); }
+  else if (kind === 'spiral') {
+    let t = 0, b = h - 1, l = 0, r = w - 1;
+    while (t <= b && l <= r) {
+      for (let x = l; x <= r; x++) out[k++] = t * w + x; t++;
+      for (let y = t; y <= b; y++) out[k++] = y * w + r; r--;
+      if (t <= b) { for (let x = r; x >= l; x--) out[k++] = b * w + x; b--; }
+      if (l <= r) { for (let y = b; y >= t; y--) out[k++] = y * w + l; l++; }
+    }
+  }
+  else if (kind === 'hilbert') {
+    let n = 1; while (n < Math.max(w, h)) n *= 2;
+    for (let d = 0; d < n * n; d++) { const [x, y] = d2xy(n, d); if (x < w && y < h) out[k++] = y * w + x; }
+  }
+  else { for (let i = 0; i < w * h; i++) out[k++] = i; }
+  return out;
+}
+
+/* ======================= sintesi ======================= */
+function addTone(out, t0, len, f, amp, o) {
+  const { L, R } = out; const n0 = Math.round(t0 * SR);
+  const n = Math.min(Math.round(len * SR), L.length - n0); if (n <= 8 || f <= 0 || f > 18000) return;
+  const H = Math.max(1, Math.min(o.harm || 10, Math.floor(16000 / f)));
+  const [gl, gr] = panGains(o.pan || 0);
+  const att = Math.max(1, Math.round((o.attack ?? 0.004) * SR));
+  const rel = Math.max(1, Math.round(Math.min(0.04, len * 0.25) * SR));
+  const tilt = 2.4 - 1.8 * (o.bright ?? 0.5), odd = o.odd ?? 0, hd = o.hdamp ?? 0.35;
+  for (let k = 1; k <= H; k++) {
+    let w = 1 / Math.pow(k, tilt); if (k % 2 === 0) w *= 1 - 0.9 * odd; if (w < 2e-3) continue;
+    const inc = f * k / SR; let ph = (k * 0.137) % 1;
+    const tau = o.sustain ? 1e9 : len / (4 * (1 + (k - 1) * hd));
+    const dm = Math.exp(-1 / (tau * SR)); let e = amp * w;
+    for (let i = 0; i < n; i++) {
+      let g = e; if (i < att) g *= i / att; else if (i > n - rel) g *= (n - i) / rel;
+      ph += inc; if (ph >= 1) ph -= 1;
+      const s = SIN[(ph * SIN_N) | 0] * g; L[n0 + i] += s * gl; R[n0 + i] += s * gr; e *= dm;
+    }
+  }
+}
+
+/* ======================= sfondo e differenza dallo sfondo ======================= */
+/* Lo sfondo è il colore più diffuso nell'immagine (istogramma a 16 livelli per canale).
+   In un disegno è il foglio, in una sagoma è il fondo: ciò che se ne distingue è il soggetto. */
+function background() {
+  if (SRC.__bg) return SRC.__bg;
+  const g = gridFit(96), d = g.d, hist = new Map(), key = i => ((d[i] >> 4) << 8) | ((d[i + 1] >> 4) << 4) | (d[i + 2] >> 4);
+  for (let i = 0; i < d.length; i += 4) { const k = key(i); hist.set(k, (hist.get(k) || 0) + 1); }
+  let bk = 0, best = -1; for (const [k, c] of hist) if (c > best) { best = c; bk = k; }
+  let r = 0, gg = 0, b = 0, n = 0;
+  for (let i = 0; i < d.length; i += 4) if (key(i) === bk) { r += d[i]; gg += d[i + 1]; b += d[i + 2]; n++; }
+  return (SRC.__bg = { r: r / n, g: gg / n, b: b / n, share: best / (d.length / 4) });
+}
+/* distanza di colore dallo sfondo, 0..1, pesata come la luminanza */
+function salience(d, i, bg) { const dr = d[i] - bg.r, dg = d[i + 1] - bg.g, db = d[i + 2] - bg.b; return Math.sqrt(0.3 * dr * dr + 0.59 * dg * dg + 0.11 * db * db) / 255; }
+/* peso morbido: 0 per i colori uguali allo sfondo, 1 da una differenza netta in su */
+const salWeight = (d, i, bg) => clamp((salience(d, i, bg) - 0.04) / 0.12, 0, 1);
+/* valore 0..1 di ogni cella secondo "cosa suona"; per lo sfondo è relativo alla cella più diversa,
+   così anche linee sottili ridotte in una griglia contano */
+function cellValues(g, what) {
+  const n = g.w * g.h, v = new Float32Array(n), d = g.d;
+  if (what === 'light' || what === 'dark') { for (let j = 0; j < n; j++) { const l = lumOf(d, j * 4); v[j] = what === 'light' ? l : 1 - l; } return v; }
+  const bg = background();
+  for (let j = 0; j < n; j++) v[j] = salience(d, j * 4, bg);
+  const sorted = Float32Array.from(v).sort(), ref = Math.max(0.06, sorted[Math.floor((n - 1) * 0.97)]);
+  for (let j = 0; j < n; j++) v[j] = Math.min(1, v[j] / ref);
+  return v;
+}
+
+/* ======================= le nove modalità =======================
+   Ogni parametro: k = nome usato dal calcolo, l = chiave dell'etichetta (p.*), g = gruppo (time, pitch, read, tone),
+   a = avanzato (nascosto finché non si attiva «Avanzati»), t = tipo (r manopola, s menu, c interruttore). */
+const F = {
+  s: v => nf(v, 1) + ' s', s2: v => nf(v, 2) + ' s', i: v => nf(v), hz: v => nf(v) + ' Hz', khz: v => nf(v / 1000, 1) + ' kHz',
+  d1: v => nf(v, 1), d2: v => nf(v, 2), pct: v => nf(v * 100) + ' %', pc: v => v + ' %', px: v => v + ' px', bpm: v => v + ' bpm',
+  note: m => noteName(m), oct: v => nf(v, 1) + ' oct', cent: v => v + ' cent', rot: v => nf(v, 2) + ' ×'
+};
+const SCALE_KEYS = ['penta', 'minpenta', 'maj', 'min', 'dorian', 'blues', 'whole', 'hira', 'chrom'];
+const SCAN_KEYS = ['rows', 'serp', 'cols', 'diag', 'spiral', 'hilbert'];
+const WHAT_KEYS = ['diff', 'light', 'dark'];
+const MODES = [
+{
+  id:'spectral', cat:'waves',
+  params:[
+    {k:'dur',l:'dur',g:'time',t:'r',min:2,max:20,step:0.5,v:8,f:F.s},
+    {k:'fmin',l:'fmin',g:'pitch',a:1,t:'r',min:30,max:1000,step:10,v:80,f:F.hz},
+    {k:'fmax',l:'fmax',g:'pitch',a:1,t:'r',min:1500,max:18000,step:100,v:10000,f:F.khz},
+    {k:'scale',l:'axis',g:'pitch',a:1,t:'s',o:['log','lin'],ok:'axis',v:'log'},
+    {k:'gamma',l:'gamma',g:'read',t:'r',min:0.5,max:4,step:0.1,v:1.8,f:F.d1},
+    {k:'bands',l:'bands',g:'read',a:1,t:'r',min:32,max:256,step:8,v:128,f:F.i},
+    {k:'what',l:'what',g:'read',t:'s',o:['light','dark','diff'],ok:'what',v:'light'},
+    {k:'stereo',l:'stereo',g:'tone',a:1,t:'c',v:true},
+  ],
+  render(p) {
+    const bands = p.bands | 0, cols = clamp(Math.round(p.dur * 50), 16, 600);
+    const g = grid(cols, bands), d = g.d, out = newOut(p.dur), N = out.L.length, L = out.L, R = out.R, dv = p.what === 'diff' ? cellValues(g, 'diff') : null;
+    const AL = new Float32Array(cols + 1), AR = new Float32Array(cols + 1), rnd = rng(7);
+    const fmax = Math.max(p.fmax, p.fmin + 100);
+    for (let r = 0; r < bands; r++) {
+      const x = (bands - 1 - r) / (bands - 1);
+      const f = p.scale === 'log' ? p.fmin * Math.pow(fmax / p.fmin, x) : p.fmin + (fmax - p.fmin) * x;
+      let any = 0;
+      for (let c = 0; c < cols; c++) {
+        const i = (r * cols + c) * 4, rr = d[i] / 255, gg = d[i + 1] / 255, bb = d[i + 2] / 255;
+        let vl, vr;
+        if (dv) vl = vr = dv[r * cols + c];
+        else {
+          if (p.stereo) { vl = 0.7 * rr + 0.3 * gg; vr = 0.7 * bb + 0.3 * gg; } else vl = vr = 0.2126 * rr + 0.7152 * gg + 0.0722 * bb;
+          if (p.what === 'dark') { vl = 1 - vl; vr = 1 - vr; }
+        }
+        AL[c] = Math.pow(vl, p.gamma); AR[c] = Math.pow(vr, p.gamma); any += AL[c] + AR[c];
+      }
+      AL[cols] = AL[cols - 1]; AR[cols] = AR[cols - 1];
+      if (any < 1e-4) continue;
+      const inc = f / SR, step = (cols - 1) / (N - 1); let ph = rnd(), cp = 0;
+      for (let n = 0; n < N; n++) {
+        const c0 = cp | 0, fr = cp - c0;
+        const al = AL[c0] + (AL[c0 + 1] - AL[c0]) * fr, ar = AR[c0] + (AR[c0 + 1] - AR[c0]) * fr;
+        ph += inc; if (ph >= 1) ph -= 1;
+        const s = SIN[(ph * SIN_N) | 0]; L[n] += s * al; R[n] += s * ar; cp += step;
+      }
+    }
+    out.cursor = t => [{ k:'vline', x: t / out.dur }];
+    out.scope = 'spec'; out.spec = { lo: p.fmin, hi: fmax, log: p.scale === 'log' };
+    return out;
+  }
+},
+{
+  id:'databend', cat:'binary',
+  params:[
+    {k:'rate',l:'rate',g:'time',t:'s',o:['2000','4000','8000','11025','22050','44100'],of:v=>nf(+v)+' Hz',v:'8000'},
+    {k:'maxDur',l:'maxDur',g:'time',a:1,t:'r',min:1,max:30,step:1,v:10,f:F.s},
+    {k:'start',l:'start',g:'time',a:1,t:'r',min:0,max:0.95,step:0.01,v:0,f:F.pct},
+    {k:'size',l:'size',g:'read',t:'r',min:16,max:512,step:16,v:128,f:F.px},
+    {k:'source',l:'source',g:'read',t:'s',o:['pixel','file'],ok:'source',v:'pixel'},
+    {k:'scan',l:'scan',g:'read',t:'s',o:SCAN_KEYS,ok:'scan',v:'serp'},
+    {k:'chan',l:'chan',g:'read',a:1,t:'s',o:['rgb','rgba','r','g','b','lum'],ok:'chan',v:'rgb'},
+    {k:'fmt',l:'fmt',g:'tone',a:1,t:'s',o:['u8','s16','bit'],ok:'fmt',v:'u8'},
+  ],
+  render(p) {
+    const rate = +p.rate; let bytes, order = null, gw = 0, gh = 0, bpp = 1, gd = null;
+    if (p.source === 'file') bytes = FILE_BYTES;
+    else {
+      const g = gridFit(p.size); gw = g.w; gh = g.h; gd = g.d; order = scanOrder(gw, gh, p.scan);
+      const ch = { rgb:[0,1,2], rgba:[0,1,2,3], r:[0], g:[1], b:[2], lum:null }[p.chan]; bpp = ch ? ch.length : 1;
+      bytes = new Uint8Array(order.length * bpp); let k = 0;
+      for (let j = 0; j < order.length; j++) { const i = order[j] * 4; if (ch) for (const c of ch) bytes[k++] = gd[i + c]; else bytes[k++] = Math.round(lumOf(gd, i) * 255); }
+    }
+    const spb = p.fmt === 'u8' ? 1 : p.fmt === 's16' ? 0.5 : 8;
+    const total = Math.floor(bytes.length * spb);
+    const s0 = Math.floor(total * p.start);
+    const srcN = Math.max(16, Math.min(total - s0, Math.floor(p.maxDur * rate)));
+    const S = new Float32Array(srcN);
+    for (let n = 0; n < srcN; n++) {
+      const si = s0 + n;
+      if (p.fmt === 'u8') S[n] = (bytes[si] - 128) / 128;
+      else if (p.fmt === 's16') { let v = bytes[2 * si] | (bytes[2 * si + 1] << 8); if (v >= 32768) v -= 65536; S[n] = v / 32768; }
+      else S[n] = (bytes[si >> 3] >> (7 - (si & 7))) & 1 ? 0.7 : -0.7;
+    }
+    const out = newOut(srcN / rate), N = out.L.length;
+    for (let n = 0; n < N; n++) { const v = S[Math.min(srcN - 1, Math.floor(n * rate / SR))]; out.L[n] = v; out.R[n] = v; }
+    const byteAt = t => clamp(Math.floor((s0 + Math.floor(t * rate)) / spb), 0, bytes.length - 1);
+    const hex = b => '0x' + b.toString(16).toUpperCase().padStart(2, '0');
+    out.cursor = t => {
+      const bi = byteAt(t);
+      if (!order) return [{ k:'bar', p: bi / bytes.length }, { k:'label', text: 'byte ' + nf(bi) + ' / ' + nf(bytes.length) + ' · ' + hex(bytes[bi]) + ' · ' + bytes[bi].toString(2).padStart(8, '0') }];
+      const pts = [];
+      for (let j = 24; j >= 0; j--) { const tt = Math.max(0, t - j * 0.006); const pi = order[Math.min(order.length - 1, Math.floor(byteAt(tt) / bpp))]; pts.push([(pi % gw + 0.5) / gw, (Math.floor(pi / gw) + 0.5) / gh]); }
+      const pi = order[Math.min(order.length - 1, Math.floor(bi / bpp))], i = pi * 4;
+      return [{ k:'trail', pts }, { k:'dot', x: pts[pts.length - 1][0], y: pts[pts.length - 1][1] },
+        { k:'label', text: 'pixel ' + (pi % gw) + ',' + Math.floor(pi / gw) + ' · R' + gd[i] + ' G' + gd[i + 1] + ' B' + gd[i + 2] + ' · ' + hex(bytes[bi]) + ' ' + bytes[bi].toString(2).padStart(8, '0') }];
+    };
+    out.scope = 'wave'; out.info = tr('info.bytes', nf(bytes.length));
+    return out;
+  }
+},
+{
+  id:'carillon', cat:'pixel',
+  params:[
+    {k:'bpm',l:'bpm',g:'time',t:'r',min:40,max:220,step:1,v:112,f:F.bpm},
+    {k:'steps',l:'steps',g:'time',t:'r',min:8,max:64,step:1,v:32,f:F.i},
+    {k:'note',l:'noteLen',g:'time',a:1,t:'r',min:0.1,max:2.5,step:0.05,v:1.2,f:F.s2},
+    {k:'root',l:'low',g:'pitch',t:'r',min:36,max:60,step:1,v:48,f:F.note},
+    {k:'rows',l:'rows',g:'pitch',a:1,t:'r',min:5,max:36,step:1,v:15,f:F.i},
+    {k:'scale',l:'scale',g:'pitch',t:'s',o:SCALE_KEYS,ok:'scale',v:'penta'},
+    {k:'thresh',l:'thresh',g:'read',t:'r',min:0.05,max:0.95,step:0.01,v:0.35,f:F.d2},
+    {k:'voices',l:'poly',g:'read',a:1,t:'r',min:1,max:8,step:1,v:4,f:F.i},
+    {k:'what',l:'what',g:'read',t:'s',o:WHAT_KEYS,ok:'what',v:'diff'},
+  ],
+  render(p) {
+    const st = p.steps | 0, rows = p.rows | 0, g = grid(st, rows), sc = SCALE[p.scale], stepDur = 60 / p.bpm / 2, val = cellValues(g, p.what);
+    const out = newOut(st * stepDur + p.note + 0.1); const byStep = [];
+    for (let c = 0; c < st; c++) {
+      const cand = [];
+      for (let r = 0; r < rows; r++) { const j = r * st + c, i = j * 4; if (val[j] > p.thresh) cand.push([val[j], r, rgb2hsv(g.d[i], g.d[i + 1], g.d[i + 2])]); }
+      cand.sort((a, b) => b[0] - a[0]); const sel = cand.slice(0, p.voices); byStep.push(sel.map(e => e[1]));
+      for (const [v, r, hsv] of sel) {
+        const deg = rows - 1 - r, m = p.root + 12 * Math.floor(deg / sc.length) + sc[deg % sc.length];
+        const vel = 0.3 + 0.7 * (v - p.thresh) / Math.max(0.05, 1 - p.thresh);
+        addTone(out, c * stepDur, p.note, mtof(m), 0.28 * vel, { bright: hsv[1], odd: Math.max(0, Math.cos((hsv[0] - 0.62) * TAU)), pan: Math.sin(hsv[0] * TAU) * 0.6 * hsv[1], hdamp: 0.6 });
+      }
+    }
+    out.cursor = t => {
+      const pos = t / stepDur, c = Math.floor(pos), sh = [{ k:'grid', cols: st, rows }];
+      if (c < st) { sh.push({ k:'vline', x: pos / st }); for (const r of byStep[c]) sh.push({ k:'rect', x: c / st, y: r / rows, w: 1 / st, h: 1 / rows }); }
+      else sh.push({ k:'label', text: tr('cur.tailRing') });
+      return sh;
+    };
+    out.marks = [{ t: st * stepDur, label: tr('mk.endTail') }];
+    out.scope = 'spec'; out.spec = { lo: 60, hi: 8000, log: true };
+    return out;
+  }
+},
+{
+  id:'melodia', cat:'colour',
+  params:[
+    {k:'bpm',l:'bpm',g:'time',t:'r',min:40,max:260,step:1,v:150,f:F.bpm},
+    {k:'legato',l:'legato',g:'time',a:1,t:'c',v:false},
+    {k:'root',l:'tonic',g:'pitch',t:'r',min:36,max:66,step:1,v:55,f:F.note},
+    {k:'octaves',l:'octaves',g:'pitch',a:1,t:'r',min:1,max:4,step:1,v:3,f:F.i},
+    {k:'scale',l:'scale',g:'pitch',t:'s',o:SCALE_KEYS,ok:'scale',v:'penta'},
+    {k:'gw',l:'gw',g:'read',t:'r',min:4,max:32,step:1,v:12,f:F.i},
+    {k:'gh',l:'gh',g:'read',t:'r',min:2,max:24,step:1,v:8,f:F.i},
+    {k:'thresh',l:'thresh',g:'read',a:1,t:'r',min:0.05,max:0.95,step:0.01,v:0.3,f:F.d2},
+    {k:'scan',l:'scan',g:'read',a:1,t:'s',o:SCAN_KEYS,ok:'scan',v:'serp'},
+    {k:'what',l:'what',g:'read',a:1,t:'s',o:WHAT_KEYS,ok:'what',v:'diff'},
+    {k:'bass',l:'bass',g:'tone',t:'c',v:true},
+  ],
+  render(p) {
+    const gw = p.gw | 0, gh = p.gh | 0, g = grid(gw, gh), order = scanOrder(gw, gh, p.scan), sc = SCALE[p.scale], stepDur = 60 / p.bpm / 2, val = cellValues(g, p.what);
+    const n = order.length, out = newOut(n * stepDur + 1.5), notes = [];
+    for (let k = 0; k < n; k++) {
+      const pi = order[k], i = pi * 4, [h, s, v] = rgb2hsv(g.d[i], g.d[i + 1], g.d[i + 2]);
+      if (val[pi] < p.thresh) { notes.push(null); continue; }
+      const grey = s < 0.18; let m, deg;
+      if (!grey) { deg = Math.floor(h * sc.length) % sc.length; m = p.root - 12 + 12 * Math.min(p.octaves - 1, Math.floor(v * p.octaves)) + sc[deg]; }
+      else { const tot = p.octaves * sc.length, idx = Math.min(tot - 1, Math.floor(lumOf(g.d, i) * tot)); deg = idx % sc.length; m = p.root - 12 + 12 * Math.floor(idx / sc.length) + sc[deg]; }
+      notes.push({ m, grey });
+      addTone(out, k * stepDur, stepDur * (p.legato ? 2.4 : 1.1) + 0.12, mtof(m), 0.25 * (0.45 + 0.55 * Math.max(v, 0.35)), { bright: grey ? 0.12 : 0.25 + 0.6 * s, odd: grey ? 0.8 : 0.3, pan: gw > 1 ? ((pi % gw) / (gw - 1) - 0.5) * 1.3 : 0, hdamp: 0.5, attack: p.legato ? 0.02 : 0.004 });
+      if (p.bass && k % 4 === 0) addTone(out, k * stepDur, stepDur * 4.3, mtof(p.root - 24 + sc[deg]), 0.2, { bright: 0.2, odd: 0.6, hdamp: 0.8, harm: 6 });
+    }
+    out.cursor = t => {
+      const k = Math.floor(t / stepDur), sh = [{ k:'grid', cols: gw, rows: gh }];
+      if (k < n) { const pi = order[k], q = notes[k]; sh.push({ k:'rect', x: (pi % gw) / gw, y: Math.floor(pi / gw) / gh, w: 1 / gw, h: 1 / gh }); sh.push({ k:'label', text: tr('cur.note') + ' ' + (k + 1) + '/' + n + ' · ' + (q == null ? tr('cur.rest') : noteName(q.m) + (q.grey ? ' · ' + tr('cur.noColour') : '')) }); }
+      else sh.push({ k:'label', text: tr('mk.tail') });
+      return sh;
+    };
+    out.marks = [{ t: n * stepDur, label: tr('mk.endTail') }];
+    out.scope = 'spec'; out.spec = { lo: 50, hi: 6000, log: true };
+    return out;
+  }
+},
+{
+  id:'wavetable', cat:'waves',
+  params:[
+    {k:'dur',l:'dur',g:'time',t:'r',min:2,max:30,step:0.5,v:10,f:F.s},
+    {k:'ping',l:'ping',g:'time',a:1,t:'c',v:true},
+    {k:'note',l:'note',g:'pitch',t:'r',min:24,max:72,step:1,v:45,f:F.note},
+    {k:'sub',l:'sub',g:'pitch',a:1,t:'c',v:false},
+    {k:'frames',l:'frames',g:'read',a:1,t:'r',min:4,max:128,step:1,v:48,f:F.i},
+    {k:'chan',l:'chan',g:'read',a:1,t:'s',o:['lum','r','g','b'],ok:'chan',v:'lum'},
+    {k:'smooth',l:'smooth',g:'tone',t:'r',min:0,max:1,step:0.01,v:0.25,f:F.d2},
+    {k:'detune',l:'detune',g:'tone',a:1,t:'r',min:0,max:40,step:1,v:10,f:F.cent},
+    {k:'voices',l:'unison',g:'tone',t:'s',o:['1','3','5'],of:v=>v,v:'3'},
+  ],
+  render(p) {
+    const W = 256, rows = p.frames | 0, g = grid(W, rows), T = new Float32Array(rows * (W + 1)), ci = { r:0, g:1, b:2 }[p.chan];
+    const rad = Math.round(p.smooth * 20), tmp = new Float32Array(W);
+    for (let r = 0; r < rows; r++) {
+      let mean = 0;
+      for (let x = 0; x < W; x++) { const i = (r * W + x) * 4; tmp[x] = ci === undefined ? lumOf(g.d, i) : g.d[i + ci] / 255; mean += tmp[x]; }
+      mean /= W; const o = r * (W + 1); let mx = 1e-6;
+      for (let x = 0; x < W; x++) { let s = 0; for (let j = -rad; j <= rad; j++) s += tmp[(x + j + W) % W]; const v = s / (2 * rad + 1) - mean; T[o + x] = v; mx = Math.max(mx, Math.abs(v)); }
+      for (let x = 0; x < W; x++) T[o + x] /= mx; T[o + W] = T[o];
+    }
+    const out = newOut(p.dur), N = out.L.length, nv = +p.voices, f0 = mtof(p.note);
+    const vs = []; for (let v = 0; v < nv; v++) { const u = nv === 1 ? 0 : v / (nv - 1) - 0.5; vs.push({ f: f0 * Math.pow(2, u * 2 * p.detune / 1200), pan: u * 1.4, a: 1 }); }
+    if (p.sub) vs.push({ f: f0 / 2, pan: 0, a: 0.7 });
+    const pos = n => { let tt = n / (N - 1); if (p.ping) tt = 1 - Math.abs(1 - 2 * tt); return tt * (rows - 1); };
+    for (const v of vs) {
+      const [gl, gr] = panGains(v.pan), inc = v.f * W / SR; let ph = Math.random() * W;
+      for (let n = 0; n < N; n++) {
+        const rp = pos(n), r0 = rp | 0, rf = rp - r0, r1 = Math.min(r0 + 1, rows - 1);
+        ph += inc; if (ph >= W) ph -= W; const i0 = ph | 0, fi = ph - i0;
+        const o0 = r0 * (W + 1) + i0, o1 = r1 * (W + 1) + i0;
+        const a = T[o0] + (T[o0 + 1] - T[o0]) * fi, b = T[o1] + (T[o1 + 1] - T[o1]) * fi;
+        const s = (a + (b - a) * rf) * v.a; out.L[n] += s * gl; out.R[n] += s * gr;
+      }
+    }
+    out.cursor = t => [{ k:'hline', y: (pos(Math.min(N - 1, Math.round(t * SR))) + 0.5) / rows }];
+    out.scope = 'wave'; out.info = noteName(p.note) + ' · ' + nf(f0, 1) + ' Hz';
+    return out;
+  }
+},
+{
+  id:'rgb', cat:'colour',
+  params:[
+    {k:'dur',l:'dur',g:'time',t:'r',min:2,max:30,step:0.5,v:12,f:F.s},
+    {k:'fmin',l:'low',g:'pitch',t:'r',min:40,max:400,step:5,v:110,f:F.hz},
+    {k:'oct',l:'range',g:'pitch',t:'r',min:1,max:6,step:0.5,v:3,f:F.oct},
+    {k:'cols',l:'cols',g:'read',a:1,t:'r',min:16,max:256,step:8,v:96,f:F.i},
+    {k:'cont',l:'cont',g:'read',a:1,t:'r',min:0,max:1,step:0.05,v:0.5,f:F.d2},
+    {k:'glide',l:'glide',g:'tone',t:'r',min:0,max:1,step:0.01,v:0.6,f:F.d2},
+  ],
+  render(p) {
+    const cols = p.cols | 0, H = 64, g = grid(cols, H), d = g.d, bg = background();
+    const Y = [new Float32Array(cols), new Float32Array(cols), new Float32Array(cols)], A = [new Float32Array(cols), new Float32Array(cols), new Float32Array(cols)];
+    const W8 = new Float32Array(cols * H); for (let j = 0; j < cols * H; j++) W8[j] = 0.3 + 0.7 * salWeight(d, j * 4, bg);
+    const prof = new Float32Array(H), sm = new Float32Array(H); let amax = 1e-6;
+    for (let ch = 0; ch < 3; ch++) {
+      let prev = -1;
+      for (let c = 0; c < cols; c++) {
+        for (let y = 0; y < H; y++) { const j = y * cols + c, i = j * 4, v = d[i + ch], o1 = d[i + (ch + 1) % 3], o2 = d[i + (ch + 2) % 3]; prof[y] = Math.max(0, v - 0.5 * (o1 + o2)) / 255 * W8[j]; }
+        let sum = 0, mx = 0;
+        for (let y = 0; y < H; y++) { sm[y] = (prof[Math.max(0, y - 1)] + 2 * prof[y] + prof[Math.min(H - 1, y + 1)]) / 4; sum += prof[y]; if (sm[y] > mx) mx = sm[y]; }
+        if (mx < 0.01) { Y[ch][c] = prev < 0 ? H / 2 : prev; A[ch][c] = 0; continue; }
+        /* fasce continue di colore: vince quella con più colore, preferendo quelle vicine alla nota precedente; la nota è il suo centro */
+        let best = -1, by = 0;
+        for (let y = 0; y < H; ) {
+          if (sm[y] <= mx * 0.25) { y++; continue; }
+          let m = 0, my = 0; while (y < H && sm[y] > mx * 0.25) { m += sm[y]; my += sm[y] * y; y++; }
+          const cy = my / m, sc = m * (prev < 0 ? 1 : 1 - p.cont * Math.abs(cy - prev) / H);
+          if (sc > best) { best = sc; by = cy; }
+        }
+        Y[ch][c] = by; prev = by; A[ch][c] = sum / H; amax = Math.max(amax, A[ch][c]);
+      }
+      for (let c = 0; c < cols; c++) if (A[ch][c] === 0) { let q = c + 1; while (q < cols && A[ch][q] === 0) q++; if (q < cols && c === 0) for (let z = 0; z < q; z++) Y[ch][z] = Y[ch][q]; break; }
+      const k = 1 - 0.92 * p.glide; for (let c = 1; c < cols; c++) Y[ch][c] = Y[ch][c - 1] + (Y[ch][c] - Y[ch][c - 1]) * k;
+    }
+    const out = newOut(p.dur), N = out.L.length, step = (cols - 1) / (N - 1), l2 = Math.log2(p.fmin);
+    const pans = [-0.75, 0, 0.75];
+    for (let ch = 0; ch < 3; ch++) {
+      const LF = new Float32Array(cols + 1), AA = new Float32Array(cols + 1);
+      for (let c = 0; c < cols; c++) { LF[c] = l2 + p.oct * (1 - Y[ch][c] / (H - 1)); AA[c] = Math.sqrt(A[ch][c] / amax); }
+      LF[cols] = LF[cols - 1]; AA[cols] = AA[cols - 1];
+      const [gl, gr] = panGains(pans[ch]); let ph = 0, cp = 0;
+      for (let n = 0; n < N; n++) {
+        const c0 = cp | 0, fr = cp - c0; cp += step;
+        const a = AA[c0] + (AA[c0 + 1] - AA[c0]) * fr; const f = Math.pow(2, LF[c0] + (LF[c0 + 1] - LF[c0]) * fr);
+        ph += f / SR; if (ph >= 1) ph -= 1; if (a < 1e-3) continue;
+        let s = 0;
+        if (ch === 0) { const H2 = Math.min(10, Math.floor(15000 / f)); for (let k = 1; k <= H2; k++) s += SIN[(((ph * k) % 1) * SIN_N) | 0] / k; s *= 0.55; }
+        else if (ch === 1) { for (let k = 1, sg = 1; k <= 7; k += 2, sg = -sg) s += sg * SIN[(((ph * k) % 1) * SIN_N) | 0] / (k * k); s *= 0.9; }
+        else { s = SIN[(ph * SIN_N) | 0] + 0.15 * SIN[(((ph * 2) % 1) * SIN_N) | 0]; }
+        s *= a; out.L[n] += s * gl; out.R[n] += s * gr;
+      }
+    }
+    const COLS = ['#ff4d4d', '#38d17a', '#4d8dff'];
+    out.cursor = t => {
+      const cp = clamp(t / out.dur, 0, 1) * (cols - 1), c = Math.round(cp), sh = [{ k:'vline', x: (cp + 0.5) / cols }];
+      for (let ch = 0; ch < 3; ch++) if (A[ch][c] / amax > 0.02) sh.push({ k:'dot', x: (cp + 0.5) / cols, y: (Y[ch][c] + 0.5) / H, c: COLS[ch], r: 3 + 6 * Math.sqrt(A[ch][c] / amax) });
+      return sh;
+    };
+    out.scope = 'spec'; out.spec = { lo: 50, hi: 12000, log: true };
+    return out;
+  }
+},
+{
+  id:'ritmo', cat:'shape',
+  params:[
+    {k:'bpm',l:'bpm',g:'time',t:'r',min:60,max:200,step:1,v:100,f:F.bpm},
+    {k:'steps',l:'steps',g:'time',t:'r',min:8,max:64,step:1,v:16,f:F.i},
+    {k:'loops',l:'loops',g:'time',t:'r',min:1,max:8,step:1,v:4,f:F.i},
+    {k:'swing',l:'swing',g:'time',a:1,t:'r',min:0,max:0.5,step:0.01,v:0.08,f:F.pct},
+    {k:'thresh',l:'thresh',g:'read',t:'r',min:0.05,max:0.95,step:0.01,v:0.4,f:F.d2},
+    {k:'bass',l:'bassline',g:'tone',t:'c',v:true},
+  ],
+  render(p) {
+    const st = p.steps | 0, sub = 4, Hh = 48, g = grid(st * sub, Hh), w = st * sub, m = sobel(grayOf(g), w, Hh);
+    const E = [new Float32Array(st), new Float32Array(st), new Float32Array(st)];
+    for (let y = 0; y < Hh; y++) { const b = Math.min(2, Math.floor(y * 3 / Hh)); for (let x = 0; x < w; x++) E[b][Math.floor(x / sub)] += m[y * w + x]; }
+    for (const e of E) { let mx = 1e-6; for (const v of e) mx = Math.max(mx, v); for (let i = 0; i < e.length; i++) e[i] /= mx; }
+    const hues = []; for (let s = 0; s < st; s++) { let r = 0, gg = 0, b = 0; for (let y = 0; y < Hh; y++) for (let x = s * sub; x < (s + 1) * sub; x++) { const i = (y * w + x) * 4; r += g.d[i]; gg += g.d[i + 1]; b += g.d[i + 2]; } const nn = sub * Hh; hues.push(rgb2hsv(r / nn, gg / nn, b / nn)); }
+    const sd = 60 / p.bpm / 4, loopLen = st * sd, out = newOut(loopLen * p.loops + 0.6), rnd = rng(3), L = out.L, R = out.R;
+    const hit = (t0, len, fn, pan) => { const n0 = Math.round(t0 * SR), n = Math.min(Math.round(len * SR), L.length - n0); const [gl, gr] = panGains(pan); const st8 = { ph: 0, z: 0, z2: 0 }; for (let i = 0; i < n; i++) { const s = fn(i / SR, st8); L[n0 + i] += s * gl; R[n0 + i] += s * gr; } };
+    const kick = (t, v) => hit(t, 0.5, (tt, s) => { const f = 45 + 110 * Math.exp(-tt / 0.035); s.ph += f / SR; if (s.ph >= 1) s.ph -= 1; return (SIN[(s.ph * SIN_N) | 0] * Math.exp(-tt / 0.25) + (tt < 0.003 ? (rnd() * 2 - 1) * 0.3 : 0)) * v * 0.95; }, 0);
+    const snare = (t, v) => hit(t, 0.25, (tt, s) => { const nz = rnd() * 2 - 1, hp = nz - s.z; s.z = nz; s.ph += 185 / SR; if (s.ph >= 1) s.ph -= 1; return (hp * 0.45 * Math.exp(-tt / 0.07) + SIN[(s.ph * SIN_N) | 0] * 0.4 * Math.exp(-tt / 0.05)) * v; }, -0.12);
+    const hat = (t, v) => hit(t, 0.08, (tt, s) => { const nz = rnd() * 2 - 1, h1 = nz - s.z; s.z = nz; const h2 = h1 - s.z2; s.z2 = h1; return h2 * 0.22 * Math.exp(-tt / 0.018) * v; }, 0.35);
+    const trig = [];
+    for (let s = 0; s < st; s++) trig.push([E[0][s] > p.thresh, E[1][s] > p.thresh, E[2][s] > p.thresh]);
+    for (let l = 0; l < p.loops; l++) for (let s = 0; s < st; s++) {
+      const t = l * loopLen + s * sd + (s % 2 ? p.swing * sd : 0);
+      if (trig[s][2]) kick(t, 0.5 + 0.5 * E[2][s]);
+      if (trig[s][1]) snare(t, 0.4 + 0.6 * E[1][s]);
+      if (trig[s][0]) hat(t, 0.4 + 0.6 * E[0][s]);
+      if (p.bass && s % 2 === 0 && hues[s][1] > 0.08) { const sc = SCALE.minpenta, deg = Math.floor(hues[s][0] * sc.length) % sc.length; addTone(out, t, sd * 1.8, mtof(33 + sc[deg] + (hues[s][2] > 0.6 ? 12 : 0)), 0.22, { bright: 0.55, odd: 0.1, harm: 8, hdamp: 0.3 }); }
+    }
+    out.marks = []; for (let l = 1; l <= p.loops; l++) out.marks.push({ t: l * loopLen, label: l === 1 && p.loops > 1 ? tr('mk.repeats') : l === p.loops ? tr('mk.tail') : '' });
+    out.cursor = t => {
+      const s = Math.floor((t % loopLen) / sd), sh = [{ k:'grid', cols: st, rows: 3 }, { k:'vline', x: ((t % loopLen) / sd) / st }];
+      if (s < st) for (let b = 0; b < 3; b++) if (trig[s][b]) sh.push({ k:'rect', x: s / st, y: b / 3, w: 1 / st, h: 1 / 3 });
+      return sh;
+    };
+    out.scope = 'wave';
+    return out;
+  }
+},
+{
+  id:'xy', cat:'shape',
+  params:[
+    {k:'dur',l:'dur',g:'time',t:'r',min:2,max:30,step:0.5,v:10,f:F.s},
+    {k:'spin',l:'spin',g:'time',a:1,t:'r',min:0,max:4,step:0.25,v:0,f:F.rot},
+    {k:'refresh',l:'refresh',g:'pitch',t:'r',min:20,max:200,step:1,v:50,f:F.hz},
+    {k:'detail',l:'detail',g:'read',t:'r',min:100,max:3000,step:50,v:800,f:F.i},
+    {k:'edge',l:'edge',g:'read',t:'r',min:50,max:98,step:1,v:88,f:F.pc},
+  ],
+  render(p) {
+    const g = gridFit(180), w = g.w, h = g.h, m = sobel(grayOf(g), w, h);
+    const sorted = Float32Array.from(m).sort(), thr = Math.max(0.05, sorted[Math.floor(p.edge / 100 * (sorted.length - 1))]);
+    let pts = []; for (let i = 0; i < m.length; i++) if (m[i] > thr) pts.push(i);
+    if (pts.length < 8) { pts = []; for (let i = 0; i < m.length; i++) if (m[i] >= sorted[Math.floor(sorted.length * 0.9)]) pts.push(i); }
+    if (pts.length > p.detail) { const st = pts.length / p.detail, q = []; for (let k = 0; k < p.detail; k++) q.push(pts[Math.floor(k * st)]); pts = q; }
+    const s = Math.max(w, h), P = pts.map(i => [((i % w) - (w - 1) / 2) / (s / 2) * 0.92, -((Math.floor(i / w)) - (h - 1) / 2) / (s / 2) * 0.92]);
+    const Np = P.length, used = new Uint8Array(Np), path = []; let cur = 0;
+    for (let k = 0; k < Np; k++) { used[cur] = 1; path.push(P[cur]); let best = -1, bd = 1e9; const [cx, cy] = P[cur]; for (let j = 0; j < Np; j++) if (!used[j]) { const dx = P[j][0] - cx, dy = P[j][1] - cy, dd = dx * dx + dy * dy; if (dd < bd) { bd = dd; best = j; } } if (best < 0) break; cur = best; }
+    const out = newOut(p.dur), N = out.L.length, fl = Math.max(8, Math.round(SR / p.refresh)), kk = Math.ceil(path.length / fl);
+    for (let n = 0; n < N; n++) {
+      const fr = Math.floor(n / fl), i = n % fl, idx = (Math.floor(i * path.length / fl) + (fr % kk)) % path.length;
+      const [x, y] = path[idx], a = p.spin * TAU * n / N, ca = Math.cos(a), sa = Math.sin(a);
+      out.L[n] = x * ca - y * sa; out.R[n] = x * sa + y * ca;
+    }
+    const show = []; const stp = Math.max(1, Math.floor(path.length / 600));
+    for (let k = 0; k < path.length; k += stp) show.push([(path[k][0] / 0.92 * (s / 2) + (w - 1) / 2 + 0.5) / w, (-path[k][1] / 0.92 * (s / 2) + (h - 1) / 2 + 0.5) / h]);
+    out.cursor = () => [{ k:'pts', pts: show }];
+    out.scope = 'xy'; out.noDC = true; out.info = tr('info.points', nf(path.length)) + ' · ' + p.refresh + ' Hz';
+    return out;
+  }
+},
+{
+  id:'accordo', cat:'colour',
+  params:[
+    {k:'dur',l:'dur',g:'time',t:'r',min:4,max:40,step:1,v:16,f:F.s},
+    {k:'windows',l:'windows',g:'time',t:'r',min:1,max:24,step:1,v:8,f:F.i},
+    {k:'root',l:'tonic',g:'pitch',t:'r',min:36,max:60,step:1,v:48,f:F.note},
+    {k:'spread',l:'octaves',g:'pitch',a:1,t:'r',min:1,max:4,step:1,v:3,f:F.i},
+    {k:'voices',l:'chordNotes',g:'read',t:'r',min:1,max:8,step:1,v:4,f:F.i},
+    {k:'shimmer',l:'shimmer',g:'tone',a:1,t:'r',min:0,max:25,step:1,v:0,f:F.cent},
+    {k:'air',l:'air',g:'tone',a:1,t:'c',v:true},
+  ],
+  render(p) {
+    const g = gridFit(120), W = g.w, H = g.h, wins = p.windows | 0, sp = p.spread | 0, nb = 12 * sp, bg = background();
+    const A = new Float32Array(wins * nb), grey = new Float32Array(wins), cnt = new Float32Array(wins);
+    for (let x = 0; x < W; x++) { const wi = Math.min(wins - 1, Math.floor(x * wins / W)); for (let y = 0; y < H; y++) { const i = (y * W + x) * 4, [h, s, v] = rgb2hsv(g.d[i], g.d[i + 1], g.d[i + 2]); cnt[wi]++; if (s < 0.15) { grey[wi] += v; continue; } const bin = Math.round(h * 12) % 12, oc = Math.min(sp - 1, Math.floor(v * sp)); A[wi * nb + oc * 12 + bin] += s * v * (0.3 + 0.7 * salWeight(g.d, i, bg)); } }
+    const chords = [];
+    for (let wi = 0; wi < wins; wi++) {
+      const idx = []; for (let b = 0; b < nb; b++) idx.push(b); idx.sort((a, b) => A[wi * nb + b] - A[wi * nb + a]);
+      const keep = new Set(idx.slice(0, p.voices).filter(b => A[wi * nb + b] > 0)); let sum = 0;
+      for (let b = 0; b < nb; b++) { if (!keep.has(b)) A[wi * nb + b] = 0; sum += A[wi * nb + b]; }
+      for (let b = 0; b < nb; b++) A[wi * nb + b] = sum > 0 ? A[wi * nb + b] / sum : 0;
+      grey[wi] = cnt[wi] ? grey[wi] / cnt[wi] : 0;
+      const ks = [...keep].sort((a, b) => a - b), pcs = new Set(ks.map(b => b % 12));
+      chords.push(ks.map(b => noteName(p.root + Math.floor(b / 12) * 12 + (b % 12))).join(' ') + (ks.length && pcs.size === 1 ? ' (' + tr('cur.oneHue') + ')' : ''));
+    }
+    const out = newOut(p.dur), N = out.L.length, wd = out.dur / wins, BL = 64;
+    const ampAt = (b, t) => { const u = clamp(t / wd - 0.5, 0, wins - 1), w0 = Math.floor(u), w1 = Math.min(wins - 1, w0 + 1); let f = u - w0; f = f * f * (3 - 2 * f); return A[w0 * nb + b] * (1 - f) + A[w1 * nb + b] * f; };
+    for (let b = 0; b < nb; b++) {
+      let active = false; for (let wi = 0; wi < wins; wi++) if (A[wi * nb + b] > 0) active = true; if (!active) continue;
+      const f = mtof(p.root + Math.floor(b / 12) * 12 + (b % 12)), [gl, gr] = panGains(Math.sin((b % 12) / 12 * TAU) * 0.6);
+      const parts = [[f * Math.pow(2, -p.shimmer / 1200), 0.5], [f * Math.pow(2, p.shimmer / 1200), 0.5], [2 * f, 0.22], [3 * f, 0.08]];
+      for (const [pf, pa] of parts) {
+        const inc = pf / SR; let ph = Math.random();
+        for (let n0 = 0; n0 < N; n0 += BL) {
+          const a0 = ampAt(b, n0 / SR) * pa, a1 = ampAt(b, Math.min(N, n0 + BL) / SR) * pa, n1 = Math.min(N, n0 + BL);
+          if (a0 < 1e-5 && a1 < 1e-5) { ph = (ph + inc * (n1 - n0)) % 1; continue; }
+          for (let n = n0; n < n1; n++) { ph += inc; if (ph >= 1) ph -= 1; const s = SIN[(ph * SIN_N) | 0] * (a0 + (a1 - a0) * (n - n0) / BL); out.L[n] += s * gl; out.R[n] += s * gr; }
+        }
+      }
+    }
+    if (p.air) { const rnd = rng(11); let zl = 0, zr = 0; for (let n = 0; n < N; n++) { const t = n / SR, u = clamp(t / wd - 0.5, 0, wins - 1), w0 = Math.floor(u), w1 = Math.min(wins - 1, w0 + 1), gv = grey[w0] + (grey[w1] - grey[w0]) * (u - w0); zl += ((rnd() * 2 - 1) - zl) * 0.08; zr += ((rnd() * 2 - 1) - zr) * 0.08; out.L[n] += zl * gv * 0.5; out.R[n] += zr * gv * 0.5; } }
+    const fi = Math.round(0.8 * SR), fo = Math.round(1.2 * SR);
+    for (let n = 0; n < Math.min(fi, N); n++) { out.L[n] *= n / fi; out.R[n] *= n / fi; }
+    for (let n = 0; n < Math.min(fo, N); n++) { const k = N - 1 - n; out.L[k] *= n / fo; out.R[k] *= n / fo; }
+    out.cursor = t => { const wi = Math.min(wins - 1, Math.floor(t / wd)); return [{ k:'rect', x: wi / wins, y: 0, w: 1 / wins, h: 1, soft: true }, { k:'label', text: tr('cur.chord') + ' ' + (wi + 1) + '/' + wins + ' · ' + (chords[wi] || tr('cur.onlyAir')) }]; };
+    out.scope = 'spec'; out.spec = { lo: 50, hi: 5000, log: true };
+    return out;
+  }
+}
+];
+
+/* ======================= stato ======================= */
+const S = { mode: 'spectral', params: {}, out: null, abuf: null, playing: false, src: null, startAt: 0, offset: 0, loop: true, vol: 0.8, scope: 'spec', manualScope: false, adv: false };
+const defaults = m => Object.fromEntries(m.params.map(q => [q.k, q.v]));
+for (const m of MODES) S.params[m.id] = defaults(m);
+const modeById = id => MODES.find(m => m.id === id);
+const ORDER = ['spectral', 'wavetable', 'databend', 'carillon', 'melodia', 'rgb', 'accordo', 'ritmo', 'xy'];
+const GROUPS = ['time', 'pitch', 'read', 'tone'];
+const mName = id => tr('m.' + id + '.n'), mShort = id => tr('m.' + id + '.s');
+const store = { get(k) { try { return localStorage.getItem('fotofono-' + k); } catch (e) { return null; } }, set(k, v) { try { localStorage.setItem('fotofono-' + k, v); } catch (e) {} } };
+
+function finalize(out) {
+  const { L, R } = out, N = L.length;
+  if (!out.noDC) { let xl = 0, yl = 0, xr = 0, yr = 0; const a = 0.9986; for (let n = 0; n < N; n++) { const l = L[n], r = R[n]; yl = l - xl + a * yl; xl = l; yr = r - xr + a * yr; xr = r; L[n] = yl; R[n] = yr; } }
+  let pk = 1e-9; for (let n = 0; n < N; n++) { const a = Math.abs(L[n]), b = Math.abs(R[n]); if (a > pk) pk = a; if (b > pk) pk = b; }
+  out.silent = pk < 1e-6;
+  const g = out.silent ? 0 : 0.89 / pk, fd = Math.min(Math.round(0.004 * SR), N >> 2);
+  let el = 1e-3, er = 1e-3;
+  for (let n = 0; n < N; n++) { let e = g; if (n < fd) e *= n / fd; else if (n > N - fd) e *= (N - n) / fd; L[n] *= e; R[n] *= e; if (L[n] > el) el = L[n]; else if (-L[n] > el) el = -L[n]; if (R[n] > er) er = R[n]; else if (-R[n] > er) er = -R[n]; }
+  out.xyExt = [el, er]; /* estensione reale del segnale: lo schermo XY la usa per riempirsi senza uscire */
+  return out;
+}
+function computeMode(id) { const m = modeById(id); return finalize(m.render(S.params[id])); }
+
+/* ======================= audio ======================= */
+let AC = null, master, anL, anR;
+function ensureAC() {
+  if (AC) return;
+  AC = new (window.AudioContext || window.webkitAudioContext)();
+  master = AC.createGain(); master.gain.value = S.vol; master.connect(AC.destination);
+  const sp = AC.createChannelSplitter(2); master.connect(sp);
+  anL = AC.createAnalyser(); anR = AC.createAnalyser(); anL.fftSize = anR.fftSize = 2048;
+  sp.connect(anL, 0); sp.connect(anR, 1);
+}
+function buildABuf() { if (!AC || !S.out) return; const b = AC.createBuffer(2, S.out.L.length, SR); b.copyToChannel(S.out.L, 0); b.copyToChannel(S.out.R, 1); S.abuf = b; }
+function curTime() {
+  if (!S.out) return 0;
+  if (!S.playing) return S.offset;
+  const t = AC.currentTime - S.startAt; return S.loop ? ((t % S.out.dur) + S.out.dur) % S.out.dur : Math.min(t, S.out.dur);
+}
+function stopSrc() { if (S.src) { S.src.onended = null; try { S.src.stop(); } catch (e) {} S.src.disconnect(); S.src = null; } }
+function play(offset) {
+  ensureAC(); if (AC.state === 'suspended') AC.resume();
+  if (!S.abuf) buildABuf(); if (!S.abuf) return;
+  stopSrc(); offset = clamp(offset || 0, 0, S.out.dur - 0.001);
+  const src = AC.createBufferSource(); src.buffer = S.abuf; src.loop = S.loop; src.connect(master); src.start(0, offset);
+  S.src = src; S.startAt = AC.currentTime - offset; S.playing = true;
+  src.onended = () => { if (S.src === src) { S.playing = false; S.offset = 0; S.src = null; updPlay(); } };
+  updPlay();
+}
+function pause() { S.offset = curTime(); stopSrc(); S.playing = false; updPlay(); }
+function stopAll() { stopSrc(); S.playing = false; S.offset = 0; updPlay(); }
+function updPlay() {
+  $('#play').setAttribute('aria-pressed', S.playing);
+  $('#playico').setAttribute('d', S.playing ? 'M3 2h3.5v12H3zM9.5 2H13v12H9.5z' : 'M4 2l10 6-10 6z');
+  $('#scrnote').hidden = S.playing;
+}
+
+/* ======================= calcolo ======================= */
+let renderId = 0, renderTimer = 0;
+const nextFrame = () => new Promise(r => setTimeout(r, 30));
+function status(t, busy) { $('#status').textContent = t; $('#busy').classList.toggle('on', !!busy); }
+async function render() {
+  if (!SRC) return;
+  const id = ++renderId; status(tr('st.calc'), true); await nextFrame(); if (id !== renderId) return;
+  const t0 = performance.now(); let out;
+  try { out = computeMode(S.mode); } catch (e) { console.error(e); status(tr('st.error') + ': ' + e.message); return; }
+  if (id !== renderId) return;
+  const was = S.playing, t = curTime();
+  S.out = out; S.abuf = null; if (AC) buildABuf();
+  if (!S.manualScope) setScope(out.scope);
+  drawOverview();
+  if (was) play(t % out.dur); else S.offset = Math.min(S.offset, out.dur - 0.001);
+  $('#play').disabled = false;
+  status(mShort(S.mode).toUpperCase() + ' · ' + nf(out.dur, 1) + ' s · ' + nf(44.1, 1) + ' kHz · ' + nf(performance.now() - t0) + ' ms' + (out.silent ? ' · ' + tr('st.silence') : out.info ? ' · ' + out.info : ''));
+  if (out.silent) toast(tr('msg.silent', mShort(S.mode)));
+  buildSpec();
+  $('#scrinfo').textContent = scopeInfo();
+}
+function scheduleRender() { clearTimeout(renderTimer); renderTimer = setTimeout(render, 260); }
+
+/* ======================= manopole ======================= */
+const KA = Math.PI * 0.75;
+const polar = (r, a) => [25 + r * Math.sin(a), 25 - r * Math.cos(a)];
+function arc(r, a0, a1) {
+  if (a1 - a0 < 0.02) return '';
+  const [x0, y0] = polar(r, a0), [x1, y1] = polar(r, a1);
+  return 'M' + x0.toFixed(2) + ' ' + y0.toFixed(2) + 'A' + r + ' ' + r + ' 0 ' + (a1 - a0 > Math.PI ? 1 : 0) + ' 1 ' + x1.toFixed(2) + ' ' + y1.toFixed(2);
+}
+function makeKnob(o) {
+  const wrap = document.createElement('div'); wrap.className = 'knob' + (o.compact ? ' compact' : '');
+  const lab = document.createElement('span'); lab.className = 'klab'; lab.textContent = o.label;
+  const dial = document.createElement('div'); dial.className = 'kdial'; dial.tabIndex = 0; dial.id = o.id;
+  dial.setAttribute('role', 'slider'); dial.setAttribute('aria-label', o.label); dial.setAttribute('aria-valuemin', o.min); dial.setAttribute('aria-valuemax', o.max);
+  dial.title = o.label + ' — ' + tr('tip.knob');
+  dial.innerHTML = '<svg viewBox="0 0 50 50" aria-hidden="true"><path class="ktrack" d="' + arc(21, -KA, KA) + '"/><path class="karc"/><circle class="kbody" cx="25" cy="25" r="16"/><line class="kind" x1="25" y1="25" x2="25" y2="12"/></svg>';
+  const val = document.createElement('span'); val.className = 'kval';
+  const karc = dial.querySelector('.karc'), kind = dial.querySelector('.kind'), fmt = o.fmt || (x => x);
+  let v = o.value;
+  function draw() {
+    const t = (v - o.min) / (o.max - o.min), a = -KA + 2 * KA * t;
+    karc.setAttribute('d', arc(21, -KA, a)); const [x, y] = polar(12.5, a); kind.setAttribute('x2', x.toFixed(2)); kind.setAttribute('y2', y.toFixed(2));
+    val.textContent = fmt(v); dial.setAttribute('aria-valuenow', v); dial.setAttribute('aria-valuetext', String(fmt(v)));
+  }
+  function set(nv) {
+    nv = clamp(nv, o.min, o.max); nv = clamp(+(o.min + Math.round((nv - o.min) / o.step) * o.step).toFixed(6), o.min, o.max);
+    if (nv === v) return; v = nv; draw(); o.onChange(v);
+  }
+  let drag = null;
+  dial.addEventListener('pointerdown', e => { if (e.button !== 0) return; dial.setPointerCapture(e.pointerId); drag = { y: e.clientY, v }; dial.focus(); e.preventDefault(); });
+  dial.addEventListener('pointermove', e => { if (!drag) return; set(drag.v + (drag.y - e.clientY) / 180 * (o.max - o.min) * (e.shiftKey ? 0.2 : 1)); });
+  const end = () => { drag = null; };
+  dial.addEventListener('pointerup', end); dial.addEventListener('pointercancel', end);
+  dial.addEventListener('wheel', e => { e.preventDefault(); const n = e.shiftKey ? 1 : Math.max(1, Math.round((o.max - o.min) / o.step / 40)); set(v + (e.deltaY < 0 ? 1 : -1) * o.step * n); }, { passive: false });
+  dial.addEventListener('keydown', e => {
+    const big = Math.max(1, Math.round((o.max - o.min) / o.step / 10)) * o.step;
+    const m = { ArrowUp: o.step, ArrowRight: o.step, ArrowDown: -o.step, ArrowLeft: -o.step, PageUp: big, PageDown: -big };
+    if (e.key in m) { set(v + m[e.key]); e.preventDefault(); }
+    else if (e.key === 'Home') { set(o.min); e.preventDefault(); }
+    else if (e.key === 'End') { set(o.max); e.preventDefault(); }
+  });
+  dial.addEventListener('dblclick', () => set(o.def ?? o.value));
+  draw();
+  if (o.compact) wrap.append(lab, dial); else wrap.append(lab, dial, val);
+  return wrap;
+}
+
+/* ======================= banco, parametri, manuale ======================= */
+function buildModes() {
+  const box = $('#bank'); box.innerHTML = ''; const cats = [];
+  for (const id of ORDER) { const m = modeById(id); let g = cats.find(c => c.cat === m.cat); if (!g) cats.push(g = { cat: m.cat, ids: [] }); g.ids.push(id); }
+  for (const g of cats) {
+    const grp = document.createElement('div'); grp.className = 'grp';
+    const t = document.createElement('span'); t.className = 'engr'; t.textContent = tr('cat.' + g.cat);
+    const row = document.createElement('div'); row.className = 'row';
+    for (const id of g.ids) {
+      const n = ORDER.indexOf(id) + 1, b = document.createElement('button');
+      b.className = 'hw mbtn'; b.type = 'button'; b.dataset.id = id; b.setAttribute('aria-pressed', id === S.mode);
+      b.title = tr('tip.mode', mName(id), n);
+      b.innerHTML = '<span class="led"></span><span class="nm"></span><span class="num"></span>';
+      b.querySelector('.nm').textContent = mShort(id); b.querySelector('.num').textContent = n;
+      b.onclick = () => selectMode(id); row.appendChild(b);
+    }
+    grp.append(t, row); box.appendChild(grp);
+  }
+}
+function selectMode(id) {
+  if (!modeById(id)) return;
+  S.mode = id; S.manualScope = false; S.offset = 0;
+  document.querySelectorAll('.mbtn').forEach(b => b.setAttribute('aria-pressed', b.dataset.id === id));
+  buildDetail(); render();
+  store.set('mode', id);
+}
+const optLabel = (q, v) => q.ok ? tr('o.' + q.ok + '.' + v) : q.of ? q.of(v) : v;
+function buildDetail() {
+  const m = modeById(S.mode), P = S.params[m.id], map = tr('m.' + m.id + '.map'), desc = tr('m.' + m.id + '.d');
+  $('#mname').textContent = mName(m.id); $('#pname').textContent = mName(m.id); $('#mdesc').textContent = desc;
+  $('#pmap').textContent = map.join('  ·  '); $('#pmap').title = desc;
+  const tb = $('#mmap'); tb.innerHTML = '';
+  for (const row of map) {
+    const [a, b] = row.split(' → '), trw = document.createElement('tr'), t1 = document.createElement('td'), t2 = document.createElement('td');
+    t1.textContent = a; t2.textContent = b ? '→ ' + b : ''; trw.append(t1, t2); tb.appendChild(trw);
+  }
+  const hidden = m.params.filter(q => q.a).length;
+  $('#advtoggle').setAttribute('aria-pressed', S.adv); $('#advtoggle').hidden = !hidden;
+  $('#advcount').textContent = hidden && !S.adv ? '+' + hidden : '';
+  const box = $('#params'); box.innerHTML = '';
+  for (const g of GROUPS) {
+    const qs = m.params.filter(q => q.g === g && (S.adv || !q.a)); if (!qs.length) continue;
+    const gb = document.createElement('div'); gb.className = 'pgrp'; gb.setAttribute('role', 'group');
+    const gt = document.createElement('span'); gt.className = 'engr'; gt.textContent = tr('grp.' + g); gt.id = 'g-' + g; gb.setAttribute('aria-labelledby', gt.id);
+    const ctl = document.createElement('div'); ctl.className = 'pctl'; gb.append(gt, ctl); box.appendChild(gb);
+    for (const q of qs) {
+      const id = 'p-' + m.id + '-' + q.k, label = tr('p.' + q.l);
+      let el;
+      if (q.t === 'r') {
+        el = makeKnob({ id, label, min: q.min, max: q.max, step: q.step, value: +P[q.k], def: q.v, fmt: q.f, onChange: v => { P[q.k] = v; scheduleRender(); } });
+      } else if (q.t === 's') {
+        el = document.createElement('div'); el.className = 'selu'; el.innerHTML = '<label class="klab"></label><select></select>';
+        const sel = el.querySelector('select'), lb = el.querySelector('label'); sel.id = id; lb.htmlFor = id; lb.textContent = label;
+        for (const v of q.o) { const op = document.createElement('option'); op.value = v; op.textContent = optLabel(q, v); sel.appendChild(op); }
+        sel.value = P[q.k]; sel.onchange = () => { P[q.k] = sel.value; scheduleRender(); };
+      } else {
+        el = document.createElement('div'); el.className = 'togu'; el.innerHTML = '<span class="klab"></span><button class="hw" type="button"><span class="led"></span><span class="tl"></span></button>';
+        const b = el.querySelector('button'), tl = el.querySelector('.tl'); b.id = id; b.setAttribute('aria-label', label);
+        el.querySelector('.klab').textContent = label;
+        const sync = () => { b.setAttribute('aria-pressed', !!P[q.k]); tl.textContent = tr(P[q.k] ? 'ui.on' : 'ui.off'); };
+        sync(); b.onclick = () => { P[q.k] = !P[q.k]; sync(); scheduleRender(); };
+      }
+      if (q.a) el.classList.add('isadv');
+      ctl.appendChild(el);
+    }
+  }
+}
+
+/* ======================= lingua ======================= */
+function saveLabels() {
+  const zip = !!dlZip, dots = IN_APP ? '…' : '';
+  $('#dl .t').textContent = tr('ui.saveWav') + (zip ? ' (zip)' : dots); $('#dlall .t').textContent = tr('ui.saveAll') + dots;
+}
+function buildVol() {
+  const box = $('#volk'); box.innerHTML = '';
+  box.appendChild(makeKnob({ id: 'vol', label: tr('ui.vol'), min: 0, max: 1, step: 0.01, value: S.vol, def: 0.8, compact: true, fmt: v => Math.round(v * 100) + ' %', onChange: v => { S.vol = v; if (master) master.gain.setTargetAtTime(v, AC.currentTime, 0.02); } }));
+}
+function applyLang() {
+  document.documentElement.lang = LANG;
+  document.querySelectorAll('[data-t]').forEach(el => { el.textContent = tr(el.dataset.t); });
+  document.querySelectorAll('[data-tt]').forEach(el => { const t = tr(el.dataset.tt); el.title = t; if (el.hasAttribute('aria-label')) el.setAttribute('aria-label', t); });
+  $('#lang').value = LANG;
+  saveLabels(); buildVol(); buildModes(); buildDetail(); if (SRC) showMeta();
+  $('#scrinfo').textContent = scopeInfo();
+  if (IN_APP) window.chrome.webview.postMessage({ type: 'lang', lang: LANG });
+}
+function setLang(l) {
+  if (!I18N[l] || l === LANG) return;
+  LANG = l; store.set('lang', l); applyLang();
+  if (S.out) render(); /* ricalcola: nomi delle note ed etichette dipendono dalla lingua */
+}
+
+/* ======================= immagini ======================= */
+let IMG_KEY = null; /* esempio caricato: il suo nome segue la lingua */
+function setImage(canvas, bytes, name, key) {
+  SRC = canvas; FILE_BYTES = bytes; IMG_NAME = name; IMG_KEY = key || null; gridCache.clear();
+  const c = $('#imgc'); c.width = canvas.width; c.height = canvas.height; c.getContext('2d').drawImage(canvas, 0, 0);
+  showMeta(); fitImage(); render();
+}
+function showMeta() {
+  const name = IMG_KEY ? tr('ui.' + IMG_KEY) : IMG_NAME;
+  $('#imeta').textContent = name + ' · ' + SRC.width + '×' + SRC.height + ' px · ' + nf(FILE_BYTES.length / 1024, 1) + ' KB';
+  if (IN_APP) document.title = name + ' — Fotofono';
+}
+function fitImage() {
+  if (!SRC) return;
+  const st = $('#stage'), w = st.clientWidth - 16, h = st.clientHeight - 16; if (w <= 0 || h <= 0) return;
+  const s = Math.min(w / SRC.width, h / SRC.height), c = $('#imgc');
+  c.style.width = Math.max(1, Math.floor(SRC.width * s)) + 'px'; c.style.height = Math.max(1, Math.floor(SRC.height * s)) + 'px';
+  c.style.imageRendering = s > 2.5 ? 'pixelated' : 'auto';
+  sizeOverlay();
+}
+function canvasBytes(c) { const b64 = c.toDataURL('image/png').split(',')[1], bin = atob(b64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; }
+function loadFile(file) {
+  if (!file || !file.type.startsWith('image/')) { toast(tr('msg.notImage')); return; }
+  const url = URL.createObjectURL(file), img = new Image();
+  img.onload = async () => {
+    const sc = Math.min(1, 1024 / Math.max(img.naturalWidth, img.naturalHeight));
+    const c = document.createElement('canvas'); c.width = Math.max(1, Math.round(img.naturalWidth * sc)); c.height = Math.max(1, Math.round(img.naturalHeight * sc));
+    const x = c.getContext('2d'); x.fillStyle = '#ffffff'; x.fillRect(0, 0, c.width, c.height); /* le zone trasparenti diventano bianche, non nere */
+    x.imageSmoothingQuality = 'high'; x.drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+    setImage(c, new Uint8Array(await file.arrayBuffer()), (file.name || 'image').replace(/\.[^.]+$/, ''));
+  };
+  img.onerror = () => { toast(tr('msg.cantRead')); URL.revokeObjectURL(url); };
+  img.src = url;
+}
+function sample(kind) {
+  const c = document.createElement('canvas'), x = c.getContext('2d');
+  if (kind === 'exSunset') {
+    c.width = 640; c.height = 400; const hz = 255;
+    let gr = x.createLinearGradient(0, 0, 0, hz); gr.addColorStop(0, '#12195a'); gr.addColorStop(0.45, '#7b2a8f'); gr.addColorStop(0.8, '#ef5a3c'); gr.addColorStop(1, '#ffc35a');
+    x.fillStyle = gr; x.fillRect(0, 0, 640, hz);
+    for (let i = 0; i < 60; i++) { const sx = (i * 137.5) % 640, sy = (i * 71.3) % 120; x.fillStyle = 'rgba(255,255,255,' + (0.3 + (i % 5) / 8) + ')'; x.fillRect(sx, sy, 2, 2); }
+    let rg = x.createRadialGradient(420, 215, 5, 420, 215, 70); rg.addColorStop(0, '#fffbe6'); rg.addColorStop(0.6, '#ffe07a'); rg.addColorStop(1, 'rgba(255,200,90,0)');
+    x.fillStyle = rg; x.beginPath(); x.arc(420, 215, 70, 0, TAU); x.fill();
+    const ridge = (base, a, f, ph, col) => { x.fillStyle = col; x.beginPath(); x.moveTo(0, hz); for (let px = 0; px <= 640; px += 4) x.lineTo(px, base - a * (Math.sin(px * f + ph) * 0.6 + Math.sin(px * f * 2.7 + ph * 2) * 0.3 + Math.sin(px * f * 7.1) * 0.1)); x.lineTo(640, hz); x.fill(); };
+    ridge(200, 60, 0.012, 1, '#3b2366'); ridge(235, 40, 0.02, 4, '#1c1238');
+    gr = x.createLinearGradient(0, hz, 0, 400); gr.addColorStop(0, '#2a1a4a'); gr.addColorStop(1, '#0a0b1e'); x.fillStyle = gr; x.fillRect(0, hz, 640, 145);
+    for (let y = hz + 4; y < 400; y += 7) { const wdt = 90 * (1 - (y - hz) / 160) + 20; x.fillStyle = 'rgba(255,190,90,' + (0.75 - (y - hz) / 220) + ')'; x.fillRect(420 - wdt / 2 + Math.sin(y) * 12, y, wdt, 2); }
+  } else if (kind === 'exShapes') {
+    c.width = 600; c.height = 420; x.fillStyle = '#efe9dc'; x.fillRect(0, 0, 600, 420);
+    x.fillStyle = '#d83a2e'; x.beginPath(); x.arc(170, 170, 110, 0, TAU); x.fill();
+    x.fillStyle = '#1f4fbf'; x.fillRect(300, 60, 220, 150);
+    x.fillStyle = '#f2c230'; x.beginPath(); x.moveTo(330, 380); x.lineTo(470, 230); x.lineTo(560, 380); x.closePath(); x.fill();
+    x.strokeStyle = '#141414'; x.lineWidth = 10; x.beginPath(); x.moveTo(30, 330); x.lineTo(300, 330); x.moveTo(250, 20); x.lineTo(250, 400); x.stroke();
+    x.fillStyle = '#2f9b5a'; x.fillRect(60, 350, 120, 40);
+    x.fillStyle = '#141414'; for (let i = 0; i < 6; i++) for (let j = 0; j < 4; j++) { x.beginPath(); x.arc(320 + i * 18, 250 + j * 18, 3, 0, TAU); x.fill(); }
+  } else {
+    c.width = 640; c.height = 300; x.fillStyle = '#05060a'; x.fillRect(0, 0, 640, 300);
+    const gr = x.createLinearGradient(0, 0, 640, 0); gr.addColorStop(0, '#ff5a5a'); gr.addColorStop(0.33, '#ffd84d'); gr.addColorStop(0.66, '#4dd88a'); gr.addColorStop(1, '#5a8dff');
+    const word = tr('ui.word'); let size = 150; x.font = '700 ' + size + 'px "Chakra Petch", "Arial Black", sans-serif';
+    while (x.measureText(word).width > 560 && size > 40) { size -= 6; x.font = '700 ' + size + 'px "Chakra Petch", "Arial Black", sans-serif'; }
+    x.fillStyle = gr; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(word, 320, 150);
+    x.strokeStyle = '#ffffff'; x.lineWidth = 3; x.beginPath(); x.ellipse(320, 150, 300, 125, 0, 0, TAU); x.stroke();
+  }
+  setImage(c, canvasBytes(c), kind.slice(2).toLowerCase(), kind);
+}
+
+/* ======================= disegno ======================= */
+const COL = {}; const dpr = () => Math.min(2, window.devicePixelRatio || 1);
+function readColors() { const cs = getComputedStyle(document.documentElement); for (const k of ['hot', 'screen', 'scr-a', 'scr-b', 'scr-grid', 'amber']) COL[k] = cs.getPropertyValue('--' + k).trim(); }
+const ov = $('#ovc'), ovx = ov.getContext('2d');
+function sizeOverlay() { const r = $('#imgc').getBoundingClientRect(); ov.width = Math.max(1, Math.round(r.width * dpr())); ov.height = Math.max(1, Math.round(r.height * dpr())); }
+function drawOverlay() {
+  const W = ov.width, H = ov.height, x = ovx, k = dpr(); x.clearRect(0, 0, W, H);
+  if (!S.out || !S.out.cursor) return;
+  for (const s of S.out.cursor(curTime())) {
+    x.save();
+    if (s.k === 'vline' || s.k === 'hline') {
+      x.strokeStyle = COL.hot; x.lineWidth = 2 * k; x.shadowColor = COL.hot; x.shadowBlur = 8 * k; x.beginPath();
+      if (s.k === 'vline') { x.moveTo(s.x * W, 0); x.lineTo(s.x * W, H); } else { x.moveTo(0, s.y * H); x.lineTo(W, s.y * H); }
+      x.stroke();
+    } else if (s.k === 'rect') {
+      x.fillStyle = COL.amber; x.globalAlpha = s.soft ? 0.16 : 0.32; x.fillRect(s.x * W, s.y * H, s.w * W, s.h * H);
+      x.globalAlpha = 1; x.strokeStyle = COL.amber; x.lineWidth = 1.5 * k; x.strokeRect(s.x * W, s.y * H, s.w * W, s.h * H);
+    } else if (s.k === 'dot') {
+      x.fillStyle = s.c || COL.hot; x.strokeStyle = '#fff'; x.lineWidth = 1.5 * k; x.beginPath(); x.arc(s.x * W, s.y * H, (s.r || 5) * k, 0, TAU); x.fill(); x.stroke();
+    } else if (s.k === 'trail') {
+      x.strokeStyle = COL.hot; x.lineWidth = 2 * k; x.globalAlpha = 0.85; x.beginPath(); s.pts.forEach(([a, b], i) => i ? x.lineTo(a * W, b * H) : x.moveTo(a * W, b * H)); x.stroke();
+    } else if (s.k === 'grid') {
+      x.strokeStyle = 'rgba(255,255,255,.2)'; x.lineWidth = 1; x.beginPath();
+      for (let i = 1; i < s.cols; i++) { const px = Math.round(i / s.cols * W) + 0.5; x.moveTo(px, 0); x.lineTo(px, H); }
+      for (let j = 1; j < s.rows; j++) { const py = Math.round(j / s.rows * H) + 0.5; x.moveTo(0, py); x.lineTo(W, py); }
+      x.stroke();
+    } else if (s.k === 'pts') {
+      x.fillStyle = COL.amber; x.globalAlpha = 0.9; for (const [a, b] of s.pts) x.fillRect(a * W - k, b * H - k, 2 * k, 2 * k);
+    } else if (s.k === 'bar') {
+      x.fillStyle = 'rgba(0,0,0,.55)'; x.fillRect(0, H - 8 * k, W, 8 * k); x.fillStyle = COL.amber; x.fillRect(0, H - 8 * k, s.p * W, 8 * k);
+    } else if (s.k === 'label') {
+      x.font = (12 * k) + 'px "Share Tech Mono", Consolas, monospace'; const tw = x.measureText(s.text).width;
+      x.fillStyle = 'rgba(6,7,9,.85)'; x.fillRect(6 * k, 6 * k, tw + 14 * k, 21 * k);
+      x.fillStyle = COL.amber; x.textBaseline = 'middle'; x.fillText(s.text, 13 * k, 16.5 * k);
+    }
+    x.restore();
+  }
+}
+
+/* --- monitor --- */
+const specc = $('#specc'), spx = specc.getContext('2d'), wavec = $('#wavec'), wvx = wavec.getContext('2d');
+let tL = null, tR = null;
+const LUT = (() => { const st = [[0, [7, 8, 10]], [0.3, [58, 22, 8]], [0.55, [168, 68, 12]], [0.78, [255, 170, 52]], [1, [255, 246, 218]]], o = new Uint8Array(256 * 3);
+  for (let i = 0; i < 256; i++) { const t = i / 255; let j = 0; while (j < st.length - 2 && t > st[j + 1][0]) j++; const [a, ca] = st[j], [b, cb] = st[j + 1], f = (t - a) / (b - a); for (let c = 0; c < 3; c++) o[i * 3 + c] = ca[c] + (cb[c] - ca[c]) * f; } return o; })();
+function sizeScreens() { for (const c of [specc, wavec]) { const r = c.parentElement.getBoundingClientRect(); c.width = Math.max(1, Math.round(r.width * dpr())); c.height = Math.max(1, Math.round(r.height * dpr())); } clearWave(); clearTimeout(specTimer); specTimer = setTimeout(buildSpec, 150); }
+function specRange() { return (S.out && S.out.spec) || { lo: 30, hi: 18000, log: true }; }
+function clearWave() { wvx.fillStyle = COL.screen; wvx.fillRect(0, 0, wavec.width, wavec.height); }
+/* Spettrogramma calcolato dal suono intero (FFT con finestra di Hann): non dipende dalla fluidità dei fotogrammi */
+let specImg = null, specJob = 0, specTimer = 0;
+function fft(re, im) {
+  const n = re.length;
+  for (let i = 1, j = 0; i < n; i++) { let b = n >> 1; for (; j & b; b >>= 1) j ^= b; j ^= b; if (i < j) { let t = re[i]; re[i] = re[j]; re[j] = t; t = im[i]; im[i] = im[j]; im[j] = t; } }
+  for (let len = 2; len <= n; len <<= 1) {
+    const ang = -TAU / len, wr = Math.cos(ang), wi = Math.sin(ang), h = len >> 1;
+    for (let i = 0; i < n; i += len) {
+      let cr = 1, ci = 0;
+      for (let k = 0; k < h; k++) {
+        const a = i + k, b = a + h, xr = re[b] * cr - im[b] * ci, xi = re[b] * ci + im[b] * cr;
+        re[b] = re[a] - xr; im[b] = im[a] - xi; re[a] += xr; im[a] += xi;
+        const t = cr * wr - ci * wi; ci = cr * wi + ci * wr; cr = t;
+      }
+    }
+  }
+}
+async function buildSpec() {
+  const job = ++specJob; specImg = null; if (!S.out) return;
+  if (S.out.silent) { const cv = document.createElement('canvas'); cv.width = cv.height = 2; const c2 = cv.getContext('2d'); c2.fillStyle = COL.screen; c2.fillRect(0, 0, 2, 2); specImg = cv; return; }
+  const out = S.out, H = specc.height, cols = clamp(Math.round(specc.width / 2), 32, 720); if (H < 4) return;
+  const NF = 4096, hann = new Float32Array(NF); for (let i = 0; i < NF; i++) hann[i] = 0.5 - 0.5 * Math.cos(TAU * i / NF);
+  const r = specRange(), binHz = SR / NF, rowBin = new Float32Array(H);
+  for (let y = 0; y < H; y++) { const u = 1 - (y + 0.5) / H, f = r.log ? r.lo * Math.pow(r.hi / r.lo, u) : r.lo + (r.hi - r.lo) * u; rowBin[y] = Math.min(NF / 2 - 2, f / binHz); }
+  const db = new Float32Array(cols * H), re = new Float32Array(NF), im = new Float32Array(NF), mag = new Float32Array(NF / 2);
+  const { L, R } = out, len = L.length; let mx = -300;
+  for (let c = 0; c < cols; c++) {
+    if (c % 60 === 59) { await new Promise(res => setTimeout(res, 0)); if (job !== specJob) return; }
+    const c0 = Math.round(c / Math.max(1, cols - 1) * len) - NF / 2;
+    for (let i = 0; i < NF; i++) { const k = c0 + i; re[i] = k >= 0 && k < len ? (L[k] + R[k]) * 0.5 * hann[i] : 0; im[i] = 0; }
+    fft(re, im); for (let k = 0; k < NF / 2; k++) mag[k] = re[k] * re[k] + im[k] * im[k];
+    for (let y = 0; y < H; y++) { const b = rowBin[y], b0 = b | 0, f = b - b0, m = mag[b0] * (1 - f) + mag[b0 + 1] * f, v = 10 * Math.log10(m + 1e-12); db[y * cols + c] = v; if (v > mx) mx = v; }
+  }
+  const cv = document.createElement('canvas'); cv.width = cols; cv.height = H; const ctx = cv.getContext('2d'), img = ctx.createImageData(cols, H);
+  const top = Math.max(mx, 10 * Math.log10(Math.pow(NF / 8, 2) * 1e-6)); /* sotto circa -60 dB dal pieno volume è buio, mai «normalizzato» */
+  for (let i = 0; i < cols * H; i++) { const li = Math.round(clamp((db[i] - (top - 72)) / 72, 0, 1) * 255) * 3; img.data[i * 4] = LUT[li]; img.data[i * 4 + 1] = LUT[li + 1]; img.data[i * 4 + 2] = LUT[li + 2]; img.data[i * 4 + 3] = 255; }
+  ctx.putImageData(img, 0, 0); if (job === specJob) specImg = cv;
+}
+function scopeInfo() {
+  const r = specRange();
+  if (S.scope === 'spec') return nf(r.lo) + ' Hz – ' + (r.hi >= 1000 ? nf(r.hi / 1000, 1) + ' kHz' : nf(r.hi) + ' Hz') + ' · ' + (r.log ? 'log' : 'lin');
+  return tr(S.scope === 'xy' ? 'scr.xy' : 'scr.wave');
+}
+function setScope(s) {
+  S.scope = s; document.querySelectorAll('[data-scope]').forEach(b => b.setAttribute('aria-selected', b.dataset.scope === s));
+  specc.hidden = s !== 'spec'; wavec.hidden = s === 'spec'; $('#scrinfo').textContent = scopeInfo();
+  if (s !== 'spec') clearWave();
+}
+function drawSpec() {
+  if (S.scope !== 'spec') return;
+  const W = specc.width, H = specc.height, k = dpr(); spx.fillStyle = COL.screen; spx.fillRect(0, 0, W, H);
+  if (!S.out) return;
+  const mf = (12 * k) + 'px "Share Tech Mono", Consolas, monospace';
+  if (!specImg) { spx.fillStyle = COL['scr-a']; spx.font = mf; spx.fillText(tr('scr.analysing'), 12 * k, 22 * k); return; }
+  const t = curTime(), px = t / S.out.dur * W, shown = S.playing || t > 0;
+  spx.imageSmoothingEnabled = true; spx.globalAlpha = 0.3; spx.drawImage(specImg, 0, 0, W, H); spx.globalAlpha = 1;
+  if (shown && px > 0) spx.drawImage(specImg, 0, 0, Math.max(1, specImg.width * px / W), specImg.height, 0, 0, px, H);
+  if (S.out.silent) { spx.fillStyle = COL['scr-a']; spx.font = mf; spx.fillText(tr('scr.silent'), 12 * k, 22 * k); }
+  for (const m of S.out.marks || []) {
+    const x = Math.round(m.t / S.out.dur * W); if (x >= W - 2) continue;
+    spx.save(); spx.strokeStyle = COL['scr-b']; spx.globalAlpha = 0.75; spx.lineWidth = k; spx.setLineDash([4 * k, 4 * k]);
+    spx.beginPath(); spx.moveTo(x + 0.5, 0); spx.lineTo(x + 0.5, H); spx.stroke(); spx.restore();
+    if (m.label) { spx.fillStyle = COL['scr-b']; spx.font = mf; const tw = spx.measureText(m.label).width; spx.fillText(m.label, x + 6 * k + tw > W - 6 * k ? x - 6 * k - tw : x + 6 * k, H - 30 * k); }
+  }
+  if (shown) { spx.fillStyle = COL.hot; spx.fillRect(px - k, 0, 2 * k, H); }
+}
+function drawWave() {
+  const W = wavec.width, H = wavec.height, x = wvx, k = dpr();
+  if (S.scope === 'xy') { x.fillStyle = COL.screen; x.globalAlpha = 0.28; x.fillRect(0, 0, W, H); x.globalAlpha = 1; } else clearWave();
+  x.strokeStyle = COL['scr-grid']; x.lineWidth = 1; x.beginPath();
+  if (S.scope === 'xy') { x.moveTo(W / 2, 0); x.lineTo(W / 2, H); x.moveTo(0, H / 2); x.lineTo(W, H / 2); }
+  else for (let i = 1; i < 10; i++) { x.moveTo(i * W / 10, 0); x.lineTo(i * W / 10, H); if (i < 8) { x.moveTo(0, i * H / 8); x.lineTo(W, i * H / 8); } }
+  x.stroke();
+  if (!S.playing || !anL) return;
+  if (!tL) { tL = new Float32Array(anL.fftSize); tR = new Float32Array(anR.fftSize); }
+  anL.getFloatTimeDomainData(tL); anR.getFloatTimeDomainData(tR);
+  if (S.scope === 'xy') {
+    const [ex, ey] = (S.out && S.out.xyExt) || [1, 1], s = Math.min(W / 2 / ex, H / 2 / ey) * 0.92; x.strokeStyle = COL['scr-a']; x.lineWidth = 1.3 * k; x.shadowColor = COL['scr-a']; x.shadowBlur = 6 * k; x.beginPath();
+    let px = W / 2 + tL[0] * s, py = H / 2 - tR[0] * s; x.moveTo(px, py);
+    for (let i = 1; i < tL.length; i++) { const nx = W / 2 + tL[i] * s, ny = H / 2 - tR[i] * s; if (Math.abs(nx - px) + Math.abs(ny - py) > Math.min(W, H) * 0.09) x.moveTo(nx, ny); else x.lineTo(nx, ny); px = nx; py = ny; }
+    x.stroke(); x.shadowBlur = 0;
+  } else {
+    let z = 0; for (let i = 1; i < tL.length / 2; i++) if (tL[i - 1] < 0 && tL[i] >= 0) { z = i; break; }
+    const n = Math.floor(tL.length / 2);
+    for (const [arr, c, a] of [[tR, COL['scr-b'], 0.6], [tL, COL['scr-a'], 1]]) {
+      x.strokeStyle = c; x.globalAlpha = a; x.lineWidth = 1.5 * k; x.shadowColor = c; x.shadowBlur = 4 * k; x.beginPath();
+      for (let i = 0; i < n; i++) { const xx = i / (n - 1) * W, yy = H / 2 - arr[z + i] * H * 0.45; i ? x.lineTo(xx, yy) : x.moveTo(xx, yy); }
+      x.stroke();
+    }
+    x.globalAlpha = 1; x.shadowBlur = 0;
+  }
+}
+/* --- panoramica nel trasporto --- */
+const ovw = $('#ovw'), owx = ovw.getContext('2d'); let ovCache = null;
+function drawOverview() {
+  const r = ovw.getBoundingClientRect(), W = Math.max(1, Math.round(r.width * dpr())), H = Math.max(1, Math.round(r.height * dpr()));
+  ovw.width = W; ovw.height = H; ovCache = document.createElement('canvas'); ovCache.width = W; ovCache.height = H;
+  const x = ovCache.getContext('2d'); x.fillStyle = COL.screen; x.fillRect(0, 0, W, H);
+  x.fillStyle = COL['scr-grid']; x.fillRect(0, H / 2, W, 1);
+  if (!S.out) return; const { L, R } = S.out, N = L.length, per = N / W;
+  x.fillStyle = COL['scr-a']; x.globalAlpha = 0.75;
+  for (let px = 0; px < W; px++) {
+    let mn = 1, mx = -1; const a = Math.floor(px * per), b = Math.min(N, Math.floor((px + 1) * per) + 1);
+    for (let i = a; i < b; i += Math.max(1, (per / 64) | 0)) { const v = (L[i] + R[i]) * 0.5; if (v < mn) mn = v; if (v > mx) mx = v; }
+    x.fillRect(px, H / 2 - mx * H * 0.46, 1, Math.max(1, (mx - mn) * H * 0.46));
+  }
+}
+function paintOverview() {
+  if (!ovCache) return; owx.clearRect(0, 0, ovw.width, ovw.height); owx.drawImage(ovCache, 0, 0);
+  if (!S.out) return; const px = curTime() / S.out.dur * ovw.width;
+  owx.fillStyle = 'rgba(0,0,0,.45)'; owx.fillRect(px, 0, ovw.width - px, ovw.height);
+  owx.fillStyle = COL.hot; owx.fillRect(px - dpr(), 0, 2 * dpr(), ovw.height);
+}
+function frame() {
+  drawOverlay(); drawSpec(); if (S.scope !== 'spec') drawWave(); paintOverview();
+  if (S.out) $('#time').textContent = fmtT(curTime()) + ' / ' + fmtT(S.out.dur);
+  requestAnimationFrame(frame);
+}
+
+/* ======================= WAV, ZIP, salvataggio ======================= */
+function wavBytes(L, R) {
+  const n = L.length, buf = new ArrayBuffer(44 + n * 4), v = new DataView(buf), w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+  w(0, 'RIFF'); v.setUint32(4, 36 + n * 4, true); w(8, 'WAVE'); w(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 2, true);
+  v.setUint32(24, SR, true); v.setUint32(28, SR * 4, true); v.setUint16(32, 4, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 4, true);
+  for (let i = 0, o = 44; i < n; i++, o += 4) { const l = clamp(L[i], -1, 1), r = clamp(R[i], -1, 1); v.setInt16(o, l < 0 ? l * 32768 : l * 32767, true); v.setInt16(o + 2, r < 0 ? r * 32768 : r * 32767, true); }
+  return new Uint8Array(buf);
+}
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(u) { let c = 0xFFFFFFFF; for (let i = 0; i < u.length; i++) c = CRC_T[(c ^ u[i]) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function zipStore(files) {
+  const enc = new TextEncoder(), parts = [], cd = []; let off = 0;
+  for (const f of files) {
+    const name = enc.encode(f.name), crc = crc32(f.data), sz = f.data.length;
+    const h = new DataView(new ArrayBuffer(30)); h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(12, 33, true); h.setUint32(14, crc, true); h.setUint32(18, sz, true); h.setUint32(22, sz, true); h.setUint16(26, name.length, true);
+    parts.push(new Uint8Array(h.buffer), name, f.data);
+    const c = new DataView(new ArrayBuffer(46)); c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(14, 33, true); c.setUint32(16, crc, true); c.setUint32(20, sz, true); c.setUint32(24, sz, true); c.setUint16(28, name.length, true); c.setUint32(42, off, true);
+    cd.push(new Uint8Array(c.buffer), name); off += 30 + name.length + sz;
+  }
+  const cdSize = cd.reduce((a, b) => a + b.length, 0), e = new DataView(new ArrayBuffer(22));
+  e.setUint32(0, 0x06054b50, true); e.setUint16(8, files.length, true); e.setUint16(10, files.length, true); e.setUint32(12, cdSize, true); e.setUint32(16, off, true);
+  return new Blob([...parts, ...cd, new Uint8Array(e.buffer)], { type: 'application/zip' });
+}
+const IN_VIEWER = !!(window.claude && typeof window.claude.use === 'function');
+/* App per Windows (WebView2): salvataggio con finestra nativa e apertura di immagini passate all'eseguibile */
+const IN_APP = !!(window.chrome && window.chrome.webview);
+let dlZip = null;
+if (IN_APP) {
+  window.chrome.webview.addEventListener('message', async e => {
+    const m = e.data || {};
+    if (m.type === 'toast') toast(m.key ? tr(m.key, m.arg) : m.text);
+    if (m.type === 'open') {
+      try { if (document.fonts) await document.fonts.ready; await nextFrame(); const bin = atob(m.b64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); loadFile(new File([u], m.name, { type: m.mime })); }
+      catch (err) { toast(tr('msg.cantOpen', m.name)); }
+    }
+  });
+}
+const dlReady = IN_VIEWER ? Promise.resolve(window.claude.use('downloads')).catch(() => null) : Promise.resolve(null);
+dlReady.then(d => { dlZip = d; saveLabels(); if (!d && IN_VIEWER) { $('#dl').disabled = true; $('#dlall').disabled = true; $('#dl').title = $('#dlall').title = tr('msg.saveNA'); } });
+async function deliver(blob, filename) {
+  const DL = await dlReady;
+  if (DL) { try { await DL.save({ filename, data: blob }); toast(tr('msg.delivered', filename)); } catch (e) { toast(tr(e && e.code === 'declined' ? 'msg.cancelled' : 'msg.saveFailed')); } return; }
+  if (IN_VIEWER) { toast(tr('msg.saveNA')); return; }
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+  if (!IN_APP) toast(tr('msg.downloaded', filename));
+}
+const slug = s => s.toLowerCase().normalize('NFD').replace(/[^\x00-\x7f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'image';
+async function downloadOne() {
+  if (!S.out) return; const base = 'fotofono-' + slug(IMG_NAME) + '-' + S.mode, wav = wavBytes(S.out.L, S.out.R);
+  if (await dlReady) deliver(zipStore([{ name: base + '.wav', data: wav }]), base + '.zip'); else deliver(new Blob([wav], { type: 'audio/wav' }), base + '.wav');
+}
+async function downloadAll() {
+  const btn = $('#dlall'); btn.disabled = true; const files = [];
+  try {
+    for (const id of ORDER) { status(tr('st.archive', mShort(id).toUpperCase()), true); await nextFrame(); const o = computeMode(id); files.push({ name: 'fotofono-' + slug(IMG_NAME) + '-' + id + '.wav', data: wavBytes(o.L, o.R) }); }
+    status(tr('st.archiveReady', files.length));
+    await deliver(zipStore(files), 'fotofono-' + slug(IMG_NAME) + '.zip');
+  } catch (e) { status(tr('st.error') + ': ' + e.message); }
+  btn.disabled = false;
+}
+
+/* ======================= eventi ======================= */
+let toastT = 0; function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove('on'), 2800); }
+$('#play').onclick = () => { if (!S.out) return; if (S.playing) pause(); else play(S.offset >= S.out.dur - 0.01 ? 0 : S.offset); };
+$('#stop').onclick = () => stopAll();
+$('#rew').onclick = () => { if (S.playing) play(0); else S.offset = 0; };
+$('#loop').onclick = () => { S.loop = !S.loop; $('#loop').setAttribute('aria-pressed', S.loop); if (S.playing) play(curTime()); };
+$('#dl').onclick = downloadOne; $('#dlall').onclick = downloadAll;
+$('#reset').onclick = () => { S.params[S.mode] = defaults(modeById(S.mode)); buildDetail(); render(); };
+$('#advtoggle').onclick = () => { S.adv = !S.adv; store.set('adv', S.adv ? '1' : '0'); buildDetail(); };
+$('#lang').onchange = e => setLang(e.target.value);
+document.querySelectorAll('[data-scope]').forEach(b => b.onclick = () => { S.manualScope = true; setScope(b.dataset.scope); });
+$('#samples').onchange = e => { const v = e.target.value; e.target.value = ''; if (v) sample(v); };
+function setManual(open) { $('#manual').classList.toggle('open', open); $('#mantoggle').setAttribute('aria-expanded', open); $('#mantoggle').setAttribute('aria-pressed', open); }
+$('#mantoggle').onclick = () => setManual(!$('#manual').classList.contains('open'));
+$('#manclose').onclick = () => { setManual(false); $('#mantoggle').focus(); };
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#manual').classList.contains('open')) setManual(false); });
+$('#file').onchange = e => loadFile(e.target.files[0]);
+ovw.onclick = e => { if (!S.out) return; const r = ovw.getBoundingClientRect(), t = (e.clientX - r.left) / r.width * S.out.dur; if (S.playing) play(t); else S.offset = t; };
+const stage = $('#stage');
+stage.addEventListener('dragover', e => { e.preventDefault(); stage.classList.add('drag'); });
+stage.addEventListener('dragleave', () => stage.classList.remove('drag'));
+stage.addEventListener('drop', e => { e.preventDefault(); stage.classList.remove('drag'); if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]); });
+document.addEventListener('paste', e => { const it = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith('image/')); if (it) loadFile(it.getAsFile()); });
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && !e.altKey) {
+    const k = e.key.toLowerCase();
+    if (k === 'o') { e.preventDefault(); $('#file').click(); }
+    else if (k === 's') { e.preventDefault(); if (e.shiftKey) { if (!$('#dlall').disabled) downloadAll(); } else if (!$('#dl').disabled) downloadOne(); }
+    return;
+  }
+  if (/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) || e.altKey) return;
+  if (e.code === 'Space' && e.target.tagName !== 'BUTTON' && S.out) { e.preventDefault(); $('#play').click(); }
+  else if (/^Digit[1-9]$/.test(e.code) && e.target.getAttribute('role') !== 'slider') selectMode(ORDER[+e.code.slice(5) - 1]);
+});
+new ResizeObserver(fitImage).observe(stage);
+new ResizeObserver(() => { sizeScreens(); drawOverview(); }).observe($('.scr'));
+new ResizeObserver(() => drawOverview()).observe(ovw);
+
+/* ======================= avvio ======================= */
+readColors();
+LANG = I18N[store.get('lang')] ? store.get('lang') : detectLang();
+S.adv = store.get('adv') === '1';
+{ const m = store.get('mode'); if (m && modeById(m)) S.mode = m; }
+for (const [code, d] of Object.entries(I18N)) { const o = document.createElement('option'); o.value = code; o.textContent = d.name; $('#lang').appendChild(o); }
+applyLang(); sizeScreens(); setScope('spec');
+(document.fonts ? document.fonts.ready : Promise.resolve()).then(() => sample('exSunset'));
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
