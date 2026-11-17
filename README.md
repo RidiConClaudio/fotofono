@@ -5,6 +5,8 @@
 <p align="center"><b>Turn any image into sound — with rules you can read, not a neural network.</b><br>
 English · Italiano · Español · Français · Deutsch · Português</p>
 
+<p align="center"><a href="https://ridiconclaudio.github.io/fotofono/"><b>▶ Try it in your browser</b></a> · <a href="../../releases/latest"><b>⬇ Download for Windows</b></a></p>
+
 ![Fotofono playing a sunset as an inverse spectrogram](docs/screenshot.png)
 
 Fotofono reads an image in nine different, fully deterministic ways and turns each one into stereo audio. Every pixel has a consequence you can trace: the same image always gives the same sound, and the manual inside the app tells you exactly which property of the image drives which property of the sound.
@@ -34,7 +36,7 @@ It runs as a **Windows app** (one portable `.exe`, nothing to install) or as a *
 
 **Windows:** download `Fotofono.exe` from the [latest release](../../releases/latest) and double-click it. Nothing to install: it's a single portable file. It needs Microsoft Edge WebView2, which is already part of Windows 11 (on older systems the app offers the download link).
 
-**Any system:** open [`docs/index.html`](docs/index.html) in a modern browser.
+**Any system:** use the [web version](https://ridiconclaudio.github.io/fotofono/), or open [`docs/index.html`](docs/index.html) in a modern browser.
 
 - Drag, paste (Ctrl+V) or open (Ctrl+O) an image, or start from the built-in examples.
 - Pick a mode with the buttons on the left or the keys **1–9**; **Space** plays and pauses.
@@ -78,4 +80,4 @@ Fonts: [Chakra Petch](https://github.com/m4rc1e/Chakra-Petch), [Share Tech Mono]
 
 ### Italiano
 
-**Fotofono trasforma qualsiasi immagine in suono con regole leggibili, senza reti neurali.** Legge l'immagine in nove modi deterministici (spettrogramma, byte grezzi, carillon, colori, wavetable, contorni, oscilloscopio XY…) e ne ricava audio stereo. Per Windows basta scaricare `Fotofono.exe` dall'[ultima release](../../releases/latest) e aprirlo; in alternativa si apre `docs/index.html` in un browser. L'interfaccia segue la lingua del sistema e si cambia dal menu in basso a sinistra.
+**Fotofono trasforma qualsiasi immagine in suono con regole leggibili, senza reti neurali.** Legge l'immagine in nove modi deterministici (spettrogramma, byte grezzi, carillon, colori, wavetable, contorni, oscilloscopio XY…) e ne ricava audio stereo. Per Windows basta scaricare `Fotofono.exe` dall'[ultima release](../../releases/latest) e aprirlo; in alternativa si usa la [versione web](https://ridiconclaudio.github.io/fotofono/). L'interfaccia segue la lingua del sistema e si cambia dal menu in basso a sinistra.
