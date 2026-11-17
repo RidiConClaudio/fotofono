@@ -9,7 +9,7 @@ English · Italiano · Español · Français · Deutsch · Português</p>
 
 ![Fotofono playing a sunset as an inverse spectrogram](docs/screenshot.png)
 
-Fotofono reads an image in nine different, fully deterministic ways and turns each one into stereo audio. Every pixel has a consequence you can trace: the same image always gives the same sound, and the manual inside the app tells you exactly which property of the image drives which property of the sound.
+Fotofono reads an image in nine different, fully deterministic ways and turns each one into stereo audio — and, where there are notes, into a MIDI file you can open in any music software. Every pixel has a consequence you can trace: the same image always gives the same sound, and the manual inside the app tells you exactly which property of the image drives which property of the sound.
 
 It runs as a **Windows app** (one portable `.exe`, nothing to install) or as a **single web page** you can open in any modern browser.
 
@@ -41,10 +41,26 @@ It runs as a **Windows app** (one portable `.exe`, nothing to install) or as a *
 - Drag, paste (Ctrl+V) or open (Ctrl+O) an image, or start from the built-in examples.
 - Pick a mode with the buttons on the left or the keys **1–9**; **Space** plays and pauses.
 - Turn the knobs: drag up or down, use the mouse wheel or the arrow keys; double-click resets a knob. The essential controls are always visible; **Advanced** shows the rest.
-- **Save WAV** (Ctrl+S) saves the current mode; **Save all** (Ctrl+Shift+S) saves all nine modes as a zip.
+- **WAV** (Ctrl+S) saves the current mode's sound; **MIDI** (Ctrl+M) saves its notes; **ZIP** (Ctrl+Shift+S) saves the sounds and MIDI files of all nine modes.
 - On Windows you can also drag an image onto `Fotofono.exe`, or use *Open with → Fotofono*.
 
 The interface follows your system language and can be changed from the menu at the bottom left.
+
+## MIDI export
+
+Every mode that plays notes can also save them as a standard MIDI file (format 1, one track per voice, with the mode's tempo), ready for a DAW or a notation program:
+
+| Mode | What goes into the MIDI file |
+|---|---|
+| Grid music box | every note of the roll |
+| Colour melody | the melody, plus the bass on its own track |
+| Colour chord | the chords, tied across strips when a note continues |
+| Drums from edges | kick, snare and hi-hat on the General MIDI drum channel (10), plus the bass |
+| Three RGB voices | three tracks, the glides rounded to the nearest semitone |
+| Inverse spectrogram | a piano roll of the image (bright areas become notes) |
+| Wavetable | the sustained note |
+
+*Bytes as samples* and *XY oscilloscope* produce no notes, so their MIDI button is off.
 
 ## Languages
 
@@ -80,4 +96,4 @@ Fonts: [Chakra Petch](https://github.com/m4rc1e/Chakra-Petch), [Share Tech Mono]
 
 ### Italiano
 
-**Fotofono trasforma qualsiasi immagine in suono con regole leggibili, senza reti neurali.** Legge l'immagine in nove modi deterministici (spettrogramma, byte grezzi, carillon, colori, wavetable, contorni, oscilloscopio XY…) e ne ricava audio stereo. Per Windows basta scaricare `Fotofono.exe` dall'[ultima release](../../releases/latest) e aprirlo; in alternativa si usa la [versione web](https://ridiconclaudio.github.io/fotofono/). L'interfaccia segue la lingua del sistema e si cambia dal menu in basso a sinistra.
+**Fotofono trasforma qualsiasi immagine in suono con regole leggibili, senza reti neurali.** Legge l'immagine in nove modi deterministici (spettrogramma, byte grezzi, carillon, colori, wavetable, contorni, oscilloscopio XY…) e ne ricava audio stereo e, dove ci sono note, un file MIDI. Per Windows basta scaricare `Fotofono.exe` dall'[ultima release](../../releases/latest) e aprirlo; in alternativa si usa la [versione web](https://ridiconclaudio.github.io/fotofono/). L'interfaccia segue la lingua del sistema e si cambia dal menu in basso a sinistra.

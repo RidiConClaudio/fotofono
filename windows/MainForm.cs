@@ -205,7 +205,7 @@ sealed class MainForm : Form
                 {
                     Title = Strings.Get("saveTitle"),
                     FileName = suggested,
-                    Filter = ext == ".zip" ? Strings.Get("zip") + " (*.zip)|*.zip" : Strings.Get("wav") + " (*.wav)|*.wav",
+                    Filter = ext switch { ".zip" => Strings.Get("zip") + " (*.zip)|*.zip", ".mid" => Strings.Get("midi") + " (*.mid)|*.mid", _ => Strings.Get("wav") + " (*.wav)|*.wav" },
                     InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyMusic),
                     OverwritePrompt = true,
                 };

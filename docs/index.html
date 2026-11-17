@@ -44,6 +44,9 @@ body{user-select:none;-webkit-user-select:none;background:var(--chassis);backgro
 .hw:active,.hw[aria-pressed="true"],.hw[aria-selected="true"]{background:linear-gradient(180deg,#191c21,#23272d);box-shadow:inset 0 1px 3px rgba(0,0,0,.75)}
 .hw[aria-pressed="true"],.hw[aria-selected="true"]{color:#fff}
 .hw[disabled]{opacity:.45;cursor:default}
+.hw.off{opacity:.45}
+.saves{display:flex;gap:4px}
+.sv svg{width:14px;height:14px;flex:none}
 .hw:focus-visible,.kdial:focus-visible,select:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 
 /* marchio */
@@ -276,8 +279,11 @@ table.map td:nth-child(2){color:var(--text)}
     <canvas id="ovw" data-tt="tip.seek"></canvas>
     <button class="hw" type="button" id="loop" aria-pressed="true"><span class="led"></span><span data-t="ui.loop">Loop</span></button>
     <div id="volk"></div>
-    <button class="hw" type="button" id="dl" data-tt="tip.saveWav"><span class="t">Save WAV</span></button>
-    <button class="hw" type="button" id="dlall" data-tt="tip.saveAll"><span class="t">Save all</span></button>
+    <div class="saves">
+      <button class="hw sv" type="button" id="dl" data-tt="tip.saveWav" aria-label="Save WAV"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5v8M4.5 6.5 8 10l3.5-3.5M2.5 12.5v2h11v-2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="t">WAV</span></button>
+      <button class="hw sv" type="button" id="dlmid" data-tt="tip.saveMidi" aria-label="Save MIDI"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5v8M4.5 6.5 8 10l3.5-3.5M2.5 12.5v2h11v-2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="t">MIDI</span></button>
+      <button class="hw sv" type="button" id="dlall" data-tt="tip.saveAll" aria-label="Save all"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5v8M4.5 6.5 8 10l3.5-3.5M2.5 12.5v2h11v-2" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="t">ZIP</span></button>
+    </div>
   </footer>
 </div>
 <div class="toast" id="toast" role="status"></div>
@@ -290,14 +296,15 @@ const I18N = {
 en: {
   name: 'English',
   notes: ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'],
-  ui: { tagline:'No neural network', source:'Source', monitor:'Monitor', params:'Parameters', manual:'Manual', open:'Open…', examples:'Examples', exSunset:'Sunset', exShapes:'Shapes', exWord:'Lettering', word:'SOUND', drop:'drag or paste an image', spec:'Spectrum', wave:'Wave', xy:'XY', press:'PRESS ▶ TO LISTEN', loop:'Loop', vol:'Vol', saveWav:'Save WAV', saveAll:'Save all', reset:'Reset', adv:'Advanced', close:'Close', lang:'Language', on:'On', off:'Off' },
-  tip: { open:'Open an image (Ctrl+O)', saveWav:"Save this mode's sound (Ctrl+S)", saveAll:'Save the sounds of all nine modes as a zip (Ctrl+Shift+S)', reset:"Restore this mode's parameters to their defaults", adv:'Show or hide the advanced parameters', manual:'How this mode works', rew:'Back to start', play:'Play / pause (space)', stop:'Stop', seek:'Click to jump within the sound', knob:'drag up or down, scroll or use the arrow keys; double-click for the default', examples:'Example images', mode:'{0} (key {1})' },
+  ui: { tagline:'No neural network', source:'Source', monitor:'Monitor', params:'Parameters', manual:'Manual', open:'Open…', examples:'Examples', exSunset:'Sunset', exShapes:'Shapes', exWord:'Lettering', word:'SOUND', drop:'drag or paste an image', spec:'Spectrum', wave:'Wave', xy:'XY', press:'PRESS ▶ TO LISTEN', loop:'Loop', vol:'Vol', saveWav:'Save WAV', saveAll:'Save all', saveMidi:'Save MIDI', reset:'Reset', adv:'Advanced', close:'Close', lang:'Language', on:'On', off:'Off' },
+  tip: { open:'Open an image (Ctrl+O)', saveWav:"Save this mode's sound (Ctrl+S)", saveAll:'Save the sounds of all nine modes, and their MIDI files, as a zip (Ctrl+Shift+S)', saveMidi:"Save this mode's notes as a MIDI file (Ctrl+M)", noMidi:'This mode has no notes to write as MIDI', reset:"Restore this mode's parameters to their defaults", adv:'Show or hide the advanced parameters', manual:'How this mode works', rew:'Back to start', play:'Play / pause (space)', stop:'Stop', seek:'Click to jump within the sound', knob:'drag up or down, scroll or use the arrow keys; double-click for the default', examples:'Example images', mode:'{0} (key {1})' },
   st: { prep:'Getting ready…', calc:'COMPUTING…', error:'ERROR', silence:'SILENCE', archive:'ARCHIVE: {0}…', archiveReady:'ARCHIVE READY · {0} FILES' },
   msg: { silent:'With this image the {0} mode makes no sound: try another mode or change the parameters', notImage:'This file is not an image', cantRead:"This image can't be read", cantOpen:"Can't open {0}", saved:'Saved: {0}', downloaded:'Downloaded: {0}', delivered:'File delivered: {0}', cancelled:'Save cancelled', saveFailed:"Couldn't save the file", saveNA:'Saving is not available in this view', tooBig:'Image too large: {0}' },
   scr: { silent:'silence: with this image this mode makes no sound', analysing:'analysing the spectrum…', xy:'left = X · right = Y', wave:'amber = left · cyan = right' },
   mk: { endTail:'end of image · tail', repeats:'repeats', tail:'tail' },
   cur: { tailRing:'tail: the last notes ring out', note:'note', rest:'rest (same as background)', noColour:'no colour', chord:'chord', oneHue:'single hue: octaves only', onlyAir:'no colour: only air' },
   info: { bytes:'{0} bytes read', points:'{0} points' },
+  mi: { bass:'Bass', drums:'Drums', red:'Red', green:'Green', blue:'Blue' },
   cat: { waves:'Waves', binary:'Binary', pixel:'Pixels', colour:'Colour', shape:'Shape' },
   grp: { time:'Time', pitch:'Pitch', read:'Reading', tone:'Tone' },
   p: { dur:'Duration', bands:'Bands', fmin:'Lowest frequency', fmax:'Highest frequency', axis:'Frequency axis', gamma:'Contrast', stereo:'Stereo from colour', what:'What plays', source:'Byte source', size:'Resolution', scan:'Reading order', chan:'Channels', fmt:'Sample format', rate:'Sample rate', start:'Start point', maxDur:'Maximum duration', steps:'Steps', rows:'Notes', scale:'Scale', low:'Lowest note', bpm:'Tempo', thresh:'Threshold', poly:'Notes per step', noteLen:'Note length', gw:'Cells across', gh:'Cells down', tonic:'Tonic', octaves:'Octaves', legato:'Legato', bass:'Bass', frames:'Rows read', note:'Note', unison:'Voices', detune:'Detune', smooth:'Smoothness', ping:'Back and forth', sub:'Octave below', cols:'Columns read', range:'Range', glide:'Glide', cont:'Continuity', loops:'Repeats', swing:'Swing', bassline:'Bass line', detail:'Points', edge:'Edge selectivity', refresh:'Redraws per second', spin:'Rotation', windows:'Chords', chordNotes:'Notes per chord', shimmer:'Beating', air:'Air from greys' },
@@ -325,14 +332,15 @@ en: {
 it: {
   name: 'Italiano',
   notes: ['Do','Do♯','Re','Re♯','Mi','Fa','Fa♯','Sol','Sol♯','La','La♯','Si'],
-  ui: { tagline:'Nessuna rete neurale', source:'Sorgente', monitor:'Monitor', params:'Parametri', manual:'Manuale', open:'Apri…', examples:'Esempi', exSunset:'Tramonto', exShapes:'Geometrie', exWord:'Scritta', word:'SUONO', drop:"trascina o incolla un'immagine", spec:'Spettro', wave:'Onda', xy:'XY', press:'PREMI ▶ PER ASCOLTARE', loop:'Loop', vol:'Vol', saveWav:'Salva WAV', saveAll:'Salva tutto', reset:'Reset', adv:'Avanzati', close:'Chiudi', lang:'Lingua', on:'Attivo', off:'Spento' },
-  tip: { open:"Apri un'immagine (Ctrl+O)", saveWav:'Salva il suono di questa modalità (Ctrl+S)', saveAll:'Salva i suoni di tutte e nove le modalità in uno zip (Ctrl+Maiusc+S)', reset:'Riporta i parametri di questa modalità ai valori iniziali', adv:'Mostra o nasconde i parametri avanzati', manual:'Come funziona questa modalità', rew:"Torna all'inizio", play:'Suona / pausa (spazio)', stop:'Stop', seek:'Clicca per spostarti nel suono', knob:'trascina in verticale, usa la rotella o le frecce; doppio clic = valore iniziale', examples:'Immagini di esempio', mode:'{0} (tasto {1})' },
+  ui: { tagline:'Nessuna rete neurale', source:'Sorgente', monitor:'Monitor', params:'Parametri', manual:'Manuale', open:'Apri…', examples:'Esempi', exSunset:'Tramonto', exShapes:'Geometrie', exWord:'Scritta', word:'SUONO', drop:"trascina o incolla un'immagine", spec:'Spettro', wave:'Onda', xy:'XY', press:'PREMI ▶ PER ASCOLTARE', loop:'Loop', vol:'Vol', saveWav:'Salva WAV', saveAll:'Salva tutto', saveMidi:'Salva MIDI', reset:'Reset', adv:'Avanzati', close:'Chiudi', lang:'Lingua', on:'Attivo', off:'Spento' },
+  tip: { open:"Apri un'immagine (Ctrl+O)", saveWav:'Salva il suono di questa modalità (Ctrl+S)', saveAll:'Salva in uno zip i suoni di tutte e nove le modalità e i loro file MIDI (Ctrl+Maiusc+S)', saveMidi:'Salva le note di questa modalità come file MIDI (Ctrl+M)', noMidi:'Questa modalità non ha note da scrivere in MIDI', reset:'Riporta i parametri di questa modalità ai valori iniziali', adv:'Mostra o nasconde i parametri avanzati', manual:'Come funziona questa modalità', rew:"Torna all'inizio", play:'Suona / pausa (spazio)', stop:'Stop', seek:'Clicca per spostarti nel suono', knob:'trascina in verticale, usa la rotella o le frecce; doppio clic = valore iniziale', examples:'Immagini di esempio', mode:'{0} (tasto {1})' },
   st: { prep:'Preparazione…', calc:'CALCOLO…', error:'ERRORE', silence:'SILENZIO', archive:'ARCHIVIO: {0}…', archiveReady:'ARCHIVIO PRONTO · {0} FILE' },
   msg: { silent:"Con questa immagine la modalità {0} non produce suono: prova un'altra modalità o cambia i parametri", notImage:"Questo file non è un'immagine", cantRead:'Impossibile leggere questa immagine', cantOpen:'Impossibile aprire {0}', saved:'Salvato: {0}', downloaded:'Scaricato: {0}', delivered:'File consegnato: {0}', cancelled:'Salvataggio annullato', saveFailed:'Salvataggio non riuscito', saveNA:'Il salvataggio non è disponibile in questa vista', tooBig:'Immagine troppo grande: {0}' },
   scr: { silent:'silenzio: con questa immagine questa modalità non produce suono', analysing:'analisi dello spettro…', xy:'sinistro = X · destro = Y', wave:'ambra = sinistro · azzurro = destro' },
   mk: { endTail:'fine immagine · coda', repeats:'si ripete', tail:'coda' },
   cur: { tailRing:'coda: le ultime note risuonano', note:'nota', rest:'pausa (come lo sfondo)', noColour:'senza colore', chord:'accordo', oneHue:'una sola tinta: solo ottave', onlyAir:'nessun colore: solo soffio' },
   info: { bytes:'{0} byte letti', points:'{0} punti' },
+  mi: { bass:'Basso', drums:'Batteria', red:'Rosso', green:'Verde', blue:'Blu' },
   cat: { waves:'Onde', binary:'Binario', pixel:'Pixel', colour:'Colore', shape:'Forma' },
   grp: { time:'Tempo', pitch:'Altezza', read:'Lettura', tone:'Timbro' },
   p: { dur:'Durata', bands:'Bande', fmin:'Frequenza minima', fmax:'Frequenza massima', axis:'Asse delle frequenze', gamma:'Contrasto', stereo:'Stereo dal colore', what:'Cosa suona', source:'Sorgente dei byte', size:'Risoluzione', scan:'Ordine di lettura', chan:'Canali', fmt:'Formato dei campioni', rate:'Campionamento', start:'Punto di partenza', maxDur:'Durata massima', steps:'Passi', rows:'Note', scale:'Scala', low:'Nota più grave', bpm:'Tempo', thresh:'Soglia', poly:'Note per passo', noteLen:'Durata della nota', gw:'Celle in orizzontale', gh:'Celle in verticale', tonic:'Tonica', octaves:'Ottave', legato:'Legato', bass:'Basso', frames:'Righe lette', note:'Nota', unison:'Voci', detune:'Scordatura', smooth:'Morbidezza', ping:'Andata e ritorno', sub:'Ottava sotto', cols:'Colonne lette', range:'Estensione', glide:'Portamento', cont:'Continuità', loops:'Ripetizioni', swing:'Swing', bassline:'Linea di basso', detail:'Punti', edge:'Selettività dei contorni', refresh:'Ridisegni al secondo', spin:'Rotazione', windows:'Accordi', chordNotes:'Note per accordo', shimmer:'Battimenti', air:'Soffio dai grigi' },
@@ -360,14 +368,15 @@ it: {
 es: {
   name: 'Español',
   notes: ['Do','Do♯','Re','Re♯','Mi','Fa','Fa♯','Sol','Sol♯','La','La♯','Si'],
-  ui: { tagline:'Sin red neuronal', source:'Fuente', monitor:'Monitor', params:'Parámetros', manual:'Manual', open:'Abrir…', examples:'Ejemplos', exSunset:'Atardecer', exShapes:'Geometrías', exWord:'Rótulo', word:'SONIDO', drop:'arrastra o pega una imagen', spec:'Espectro', wave:'Onda', xy:'XY', press:'PULSA ▶ PARA ESCUCHAR', loop:'Bucle', vol:'Vol', saveWav:'Guardar WAV', saveAll:'Guardar todo', reset:'Restablecer', adv:'Avanzados', close:'Cerrar', lang:'Idioma', on:'Activado', off:'Apagado' },
-  tip: { open:'Abrir una imagen (Ctrl+O)', saveWav:'Guardar el sonido de este modo (Ctrl+S)', saveAll:'Guardar los sonidos de los nueve modos en un zip (Ctrl+Mayús+S)', reset:'Devolver los parámetros de este modo a sus valores iniciales', adv:'Mostrar u ocultar los parámetros avanzados', manual:'Cómo funciona este modo', rew:'Volver al inicio', play:'Reproducir / pausa (espacio)', stop:'Detener', seek:'Haz clic para moverte dentro del sonido', knob:'arrastra arriba o abajo, usa la rueda o las flechas; doble clic = valor inicial', examples:'Imágenes de ejemplo', mode:'{0} (tecla {1})' },
+  ui: { tagline:'Sin red neuronal', source:'Fuente', monitor:'Monitor', params:'Parámetros', manual:'Manual', open:'Abrir…', examples:'Ejemplos', exSunset:'Atardecer', exShapes:'Geometrías', exWord:'Rótulo', word:'SONIDO', drop:'arrastra o pega una imagen', spec:'Espectro', wave:'Onda', xy:'XY', press:'PULSA ▶ PARA ESCUCHAR', loop:'Bucle', vol:'Vol', saveWav:'Guardar WAV', saveAll:'Guardar todo', saveMidi:'Guardar MIDI', reset:'Restablecer', adv:'Avanzados', close:'Cerrar', lang:'Idioma', on:'Activado', off:'Apagado' },
+  tip: { open:'Abrir una imagen (Ctrl+O)', saveWav:'Guardar el sonido de este modo (Ctrl+S)', saveAll:'Guardar en un zip los sonidos de los nueve modos y sus archivos MIDI (Ctrl+Mayús+S)', saveMidi:'Guardar las notas de este modo como archivo MIDI (Ctrl+M)', noMidi:'Este modo no tiene notas que escribir en MIDI', reset:'Devolver los parámetros de este modo a sus valores iniciales', adv:'Mostrar u ocultar los parámetros avanzados', manual:'Cómo funciona este modo', rew:'Volver al inicio', play:'Reproducir / pausa (espacio)', stop:'Detener', seek:'Haz clic para moverte dentro del sonido', knob:'arrastra arriba o abajo, usa la rueda o las flechas; doble clic = valor inicial', examples:'Imágenes de ejemplo', mode:'{0} (tecla {1})' },
   st: { prep:'Preparando…', calc:'CALCULANDO…', error:'ERROR', silence:'SILENCIO', archive:'ARCHIVO: {0}…', archiveReady:'ARCHIVO LISTO · {0} FICHEROS' },
   msg: { silent:'Con esta imagen el modo {0} no produce sonido: prueba otro modo o cambia los parámetros', notImage:'Este archivo no es una imagen', cantRead:'No se puede leer esta imagen', cantOpen:'No se puede abrir {0}', saved:'Guardado: {0}', downloaded:'Descargado: {0}', delivered:'Archivo entregado: {0}', cancelled:'Guardado cancelado', saveFailed:'No se pudo guardar el archivo', saveNA:'Guardar no está disponible en esta vista', tooBig:'Imagen demasiado grande: {0}' },
   scr: { silent:'silencio: con esta imagen este modo no produce sonido', analysing:'analizando el espectro…', xy:'izquierdo = X · derecho = Y', wave:'ámbar = izquierdo · cian = derecho' },
   mk: { endTail:'fin de la imagen · cola', repeats:'se repite', tail:'cola' },
   cur: { tailRing:'cola: las últimas notas siguen sonando', note:'nota', rest:'silencio (igual que el fondo)', noColour:'sin color', chord:'acorde', oneHue:'un solo tono: solo octavas', onlyAir:'sin color: solo soplo' },
   info: { bytes:'{0} bytes leídos', points:'{0} puntos' },
+  mi: { bass:'Bajo', drums:'Batería', red:'Rojo', green:'Verde', blue:'Azul' },
   cat: { waves:'Ondas', binary:'Binario', pixel:'Píxeles', colour:'Color', shape:'Forma' },
   grp: { time:'Tiempo', pitch:'Altura', read:'Lectura', tone:'Timbre' },
   p: { dur:'Duración', bands:'Bandas', fmin:'Frecuencia mínima', fmax:'Frecuencia máxima', axis:'Eje de frecuencias', gamma:'Contraste', stereo:'Estéreo por color', what:'Qué suena', source:'Origen de los bytes', size:'Resolución', scan:'Orden de lectura', chan:'Canales', fmt:'Formato de muestra', rate:'Muestreo', start:'Punto de inicio', maxDur:'Duración máxima', steps:'Pasos', rows:'Notas', scale:'Escala', low:'Nota más grave', bpm:'Tempo', thresh:'Umbral', poly:'Notas por paso', noteLen:'Duración de nota', gw:'Celdas a lo ancho', gh:'Celdas a lo alto', tonic:'Tónica', octaves:'Octavas', legato:'Legato', bass:'Bajo', frames:'Filas leídas', note:'Nota', unison:'Voces', detune:'Desafinación', smooth:'Suavidad', ping:'Ida y vuelta', sub:'Octava inferior', cols:'Columnas leídas', range:'Extensión', glide:'Portamento', cont:'Continuidad', loops:'Repeticiones', swing:'Swing', bassline:'Línea de bajo', detail:'Puntos', edge:'Selectividad de bordes', refresh:'Redibujos por segundo', spin:'Rotación', windows:'Acordes', chordNotes:'Notas por acorde', shimmer:'Batimiento', air:'Soplo de los grises' },
@@ -395,14 +404,15 @@ es: {
 fr: {
   name: 'Français',
   notes: ['Do','Do♯','Ré','Ré♯','Mi','Fa','Fa♯','Sol','Sol♯','La','La♯','Si'],
-  ui: { tagline:'Sans réseau de neurones', source:'Source', monitor:'Moniteur', params:'Paramètres', manual:'Manuel', open:'Ouvrir…', examples:'Exemples', exSunset:'Coucher de soleil', exShapes:'Géométries', exWord:'Lettrage', word:'SON', drop:'glissez ou collez une image', spec:'Spectre', wave:'Onde', xy:'XY', press:'APPUYEZ SUR ▶ POUR ÉCOUTER', loop:'Boucle', vol:'Vol', saveWav:'Enregistrer WAV', saveAll:'Tout enregistrer', reset:'Réinitialiser', adv:'Avancés', close:'Fermer', lang:'Langue', on:'Activé', off:'Désactivé' },
-  tip: { open:'Ouvrir une image (Ctrl+O)', saveWav:'Enregistrer le son de ce mode (Ctrl+S)', saveAll:'Enregistrer les sons des neuf modes dans un zip (Ctrl+Maj+S)', reset:'Rétablir les paramètres de ce mode à leurs valeurs initiales', adv:'Afficher ou masquer les paramètres avancés', manual:'Comment fonctionne ce mode', rew:'Revenir au début', play:'Lecture / pause (espace)', stop:'Arrêter', seek:'Cliquez pour vous déplacer dans le son', knob:'glissez vers le haut ou le bas, molette ou flèches ; double-clic = valeur initiale', examples:"Images d'exemple", mode:'{0} (touche {1})' },
+  ui: { tagline:'Sans réseau de neurones', source:'Source', monitor:'Moniteur', params:'Paramètres', manual:'Manuel', open:'Ouvrir…', examples:'Exemples', exSunset:'Coucher de soleil', exShapes:'Géométries', exWord:'Lettrage', word:'SON', drop:'glissez ou collez une image', spec:'Spectre', wave:'Onde', xy:'XY', press:'APPUYEZ SUR ▶ POUR ÉCOUTER', loop:'Boucle', vol:'Vol', saveWav:'Enregistrer WAV', saveAll:'Tout enregistrer', saveMidi:'Enregistrer MIDI', reset:'Réinitialiser', adv:'Avancés', close:'Fermer', lang:'Langue', on:'Activé', off:'Désactivé' },
+  tip: { open:'Ouvrir une image (Ctrl+O)', saveWav:'Enregistrer le son de ce mode (Ctrl+S)', saveAll:'Enregistrer dans un zip les sons des neuf modes et leurs fichiers MIDI (Ctrl+Maj+S)', saveMidi:'Enregistrer les notes de ce mode dans un fichier MIDI (Ctrl+M)', noMidi:"Ce mode n'a pas de notes à écrire en MIDI", reset:'Rétablir les paramètres de ce mode à leurs valeurs initiales', adv:'Afficher ou masquer les paramètres avancés', manual:'Comment fonctionne ce mode', rew:'Revenir au début', play:'Lecture / pause (espace)', stop:'Arrêter', seek:'Cliquez pour vous déplacer dans le son', knob:'glissez vers le haut ou le bas, molette ou flèches ; double-clic = valeur initiale', examples:"Images d'exemple", mode:'{0} (touche {1})' },
   st: { prep:'Préparation…', calc:'CALCUL…', error:'ERREUR', silence:'SILENCE', archive:'ARCHIVE : {0}…', archiveReady:'ARCHIVE PRÊTE · {0} FICHIERS' },
   msg: { silent:'Avec cette image, le mode {0} ne produit aucun son : essayez un autre mode ou modifiez les paramètres', notImage:"Ce fichier n'est pas une image", cantRead:'Impossible de lire cette image', cantOpen:"Impossible d'ouvrir {0}", saved:'Enregistré : {0}', downloaded:'Téléchargé : {0}', delivered:'Fichier remis : {0}', cancelled:'Enregistrement annulé', saveFailed:"L'enregistrement a échoué", saveNA:"L'enregistrement n'est pas disponible dans cette vue", tooBig:'Image trop volumineuse : {0}' },
   scr: { silent:'silence : avec cette image, ce mode ne produit aucun son', analysing:'analyse du spectre…', xy:'gauche = X · droite = Y', wave:'ambre = gauche · cyan = droite' },
   mk: { endTail:"fin de l'image · queue", repeats:'se répète', tail:'queue' },
   cur: { tailRing:'queue : les dernières notes résonnent', note:'note', rest:'silence (identique au fond)', noColour:'sans couleur', chord:'accord', oneHue:'une seule teinte : octaves seulement', onlyAir:'aucune couleur : souffle seul' },
   info: { bytes:'{0} octets lus', points:'{0} points' },
+  mi: { bass:'Basse', drums:'Batterie', red:'Rouge', green:'Vert', blue:'Bleu' },
   cat: { waves:'Ondes', binary:'Binaire', pixel:'Pixels', colour:'Couleur', shape:'Forme' },
   grp: { time:'Temps', pitch:'Hauteur', read:'Lecture', tone:'Timbre' },
   p: { dur:'Durée', bands:'Bandes', fmin:'Fréquence minimale', fmax:'Fréquence maximale', axis:'Axe des fréquences', gamma:'Contraste', stereo:'Stéréo par la couleur', what:'Ce qui sonne', source:'Source des octets', size:'Résolution', scan:'Ordre de lecture', chan:'Canaux', fmt:"Format d'échantillon", rate:'Échantillonnage', start:'Point de départ', maxDur:'Durée maximale', steps:'Pas', rows:'Notes', scale:'Gamme', low:'Note la plus grave', bpm:'Tempo', thresh:'Seuil', poly:'Notes par pas', noteLen:'Durée de note', gw:'Cellules en largeur', gh:'Cellules en hauteur', tonic:'Tonique', octaves:'Octaves', legato:'Legato', bass:'Basse', frames:'Lignes lues', note:'Note', unison:'Voix', detune:'Désaccord', smooth:'Douceur', ping:'Aller-retour', sub:'Octave inférieure', cols:'Colonnes lues', range:'Étendue', glide:'Portamento', cont:'Continuité', loops:'Répétitions', swing:'Swing', bassline:'Ligne de basse', detail:'Points', edge:'Sélectivité des contours', refresh:'Tracés par seconde', spin:'Rotation', windows:'Accords', chordNotes:'Notes par accord', shimmer:'Battements', air:'Souffle des gris' },
@@ -430,14 +440,15 @@ fr: {
 de: {
   name: 'Deutsch',
   notes: ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','H'],
-  ui: { tagline:'Ohne neuronales Netz', source:'Quelle', monitor:'Monitor', params:'Parameter', manual:'Handbuch', open:'Öffnen…', examples:'Beispiele', exSunset:'Sonnenuntergang', exShapes:'Formen', exWord:'Schriftzug', word:'KLANG', drop:'Bild hierher ziehen oder einfügen', spec:'Spektrum', wave:'Welle', xy:'XY', press:'▶ DRÜCKEN ZUM ANHÖREN', loop:'Schleife', vol:'Vol', saveWav:'WAV speichern', saveAll:'Alles speichern', reset:'Zurücksetzen', adv:'Erweitert', close:'Schließen', lang:'Sprache', on:'Ein', off:'Aus' },
-  tip: { open:'Bild öffnen (Strg+O)', saveWav:'Klang dieses Modus speichern (Strg+S)', saveAll:'Klänge aller neun Modi als Zip speichern (Strg+Umschalt+S)', reset:'Parameter dieses Modus auf die Ausgangswerte zurücksetzen', adv:'Erweiterte Parameter ein- oder ausblenden', manual:'So funktioniert dieser Modus', rew:'Zum Anfang', play:'Wiedergabe / Pause (Leertaste)', stop:'Stopp', seek:'Klicken, um im Klang zu springen', knob:'nach oben oder unten ziehen, Mausrad oder Pfeiltasten; Doppelklick = Ausgangswert', examples:'Beispielbilder', mode:'{0} (Taste {1})' },
+  ui: { tagline:'Ohne neuronales Netz', source:'Quelle', monitor:'Monitor', params:'Parameter', manual:'Handbuch', open:'Öffnen…', examples:'Beispiele', exSunset:'Sonnenuntergang', exShapes:'Formen', exWord:'Schriftzug', word:'KLANG', drop:'Bild hierher ziehen oder einfügen', spec:'Spektrum', wave:'Welle', xy:'XY', press:'▶ DRÜCKEN ZUM ANHÖREN', loop:'Schleife', vol:'Vol', saveWav:'WAV speichern', saveAll:'Alles speichern', saveMidi:'MIDI speichern', reset:'Zurücksetzen', adv:'Erweitert', close:'Schließen', lang:'Sprache', on:'Ein', off:'Aus' },
+  tip: { open:'Bild öffnen (Strg+O)', saveWav:'Klang dieses Modus speichern (Strg+S)', saveAll:'Klänge aller neun Modi und ihre MIDI-Dateien als Zip speichern (Strg+Umschalt+S)', saveMidi:'Noten dieses Modus als MIDI-Datei speichern (Strg+M)', noMidi:'Dieser Modus hat keine Noten für MIDI', reset:'Parameter dieses Modus auf die Ausgangswerte zurücksetzen', adv:'Erweiterte Parameter ein- oder ausblenden', manual:'So funktioniert dieser Modus', rew:'Zum Anfang', play:'Wiedergabe / Pause (Leertaste)', stop:'Stopp', seek:'Klicken, um im Klang zu springen', knob:'nach oben oder unten ziehen, Mausrad oder Pfeiltasten; Doppelklick = Ausgangswert', examples:'Beispielbilder', mode:'{0} (Taste {1})' },
   st: { prep:'Vorbereitung…', calc:'BERECHNUNG…', error:'FEHLER', silence:'STILLE', archive:'ARCHIV: {0}…', archiveReady:'ARCHIV FERTIG · {0} DATEIEN' },
   msg: { silent:'Mit diesem Bild erzeugt der Modus {0} keinen Klang: Probiere einen anderen Modus oder ändere die Parameter', notImage:'Diese Datei ist kein Bild', cantRead:'Dieses Bild kann nicht gelesen werden', cantOpen:'{0} kann nicht geöffnet werden', saved:'Gespeichert: {0}', downloaded:'Heruntergeladen: {0}', delivered:'Datei übergeben: {0}', cancelled:'Speichern abgebrochen', saveFailed:'Speichern fehlgeschlagen', saveNA:'Speichern ist in dieser Ansicht nicht verfügbar', tooBig:'Bild zu groß: {0}' },
   scr: { silent:'Stille: Mit diesem Bild erzeugt dieser Modus keinen Klang', analysing:'Spektrum wird analysiert…', xy:'links = X · rechts = Y', wave:'Bernstein = links · Cyan = rechts' },
   mk: { endTail:'Bildende · Ausklang', repeats:'wiederholt sich', tail:'Ausklang' },
   cur: { tailRing:'Ausklang: Die letzten Noten klingen nach', note:'Note', rest:'Pause (wie der Hintergrund)', noColour:'ohne Farbe', chord:'Akkord', oneHue:'nur ein Farbton: nur Oktaven', onlyAir:'keine Farbe: nur Rauschen' },
   info: { bytes:'{0} Bytes gelesen', points:'{0} Punkte' },
+  mi: { bass:'Bass', drums:'Schlagzeug', red:'Rot', green:'Grün', blue:'Blau' },
   cat: { waves:'Wellen', binary:'Binär', pixel:'Pixel', colour:'Farbe', shape:'Form' },
   grp: { time:'Zeit', pitch:'Tonhöhe', read:'Lesen', tone:'Klangfarbe' },
   p: { dur:'Dauer', bands:'Bänder', fmin:'Tiefste Frequenz', fmax:'Höchste Frequenz', axis:'Frequenzachse', gamma:'Kontrast', stereo:'Stereo aus Farbe', what:'Was klingt', source:'Byte-Quelle', size:'Auflösung', scan:'Lesereihenfolge', chan:'Kanäle', fmt:'Sample-Format', rate:'Abtastrate', start:'Startpunkt', maxDur:'Maximale Dauer', steps:'Schritte', rows:'Noten', scale:'Tonleiter', low:'Tiefste Note', bpm:'Tempo', thresh:'Schwelle', poly:'Noten pro Schritt', noteLen:'Notenlänge', gw:'Zellen quer', gh:'Zellen hoch', tonic:'Grundton', octaves:'Oktaven', legato:'Legato', bass:'Bass', frames:'Gelesene Zeilen', note:'Note', unison:'Stimmen', detune:'Verstimmung', smooth:'Weichheit', ping:'Hin und zurück', sub:'Oktave darunter', cols:'Gelesene Spalten', range:'Tonumfang', glide:'Portamento', cont:'Kontinuität', loops:'Wieder­holungen', swing:'Swing', bassline:'Basslinie', detail:'Punkte', edge:'Kantenschärfe', refresh:'Durchläufe pro Sekunde', spin:'Drehung', windows:'Akkorde', chordNotes:'Noten pro Akkord', shimmer:'Schwebung', air:'Rauschen aus Grau' },
@@ -465,14 +476,15 @@ de: {
 pt: {
   name: 'Português',
   notes: ['Dó','Dó♯','Ré','Ré♯','Mi','Fá','Fá♯','Sol','Sol♯','Lá','Lá♯','Si'],
-  ui: { tagline:'Sem rede neural', source:'Fonte', monitor:'Monitor', params:'Parâmetros', manual:'Manual', open:'Abrir…', examples:'Exemplos', exSunset:'Pôr do sol', exShapes:'Geometrias', exWord:'Letreiro', word:'SOM', drop:'arraste ou cole uma imagem', spec:'Espectro', wave:'Onda', xy:'XY', press:'PRESSIONE ▶ PARA OUVIR', loop:'Repetir', vol:'Vol', saveWav:'Salvar WAV', saveAll:'Salvar tudo', reset:'Redefinir', adv:'Avançados', close:'Fechar', lang:'Idioma', on:'Ligado', off:'Desligado' },
-  tip: { open:'Abrir uma imagem (Ctrl+O)', saveWav:'Salvar o som deste modo (Ctrl+S)', saveAll:'Salvar os sons dos nove modos em um zip (Ctrl+Shift+S)', reset:'Voltar os parâmetros deste modo aos valores iniciais', adv:'Mostrar ou ocultar os parâmetros avançados', manual:'Como este modo funciona', rew:'Voltar ao início', play:'Reproduzir / pausar (espaço)', stop:'Parar', seek:'Clique para se mover dentro do som', knob:'arraste para cima ou para baixo, use a roda ou as setas; duplo clique = valor inicial', examples:'Imagens de exemplo', mode:'{0} (tecla {1})' },
+  ui: { tagline:'Sem rede neural', source:'Fonte', monitor:'Monitor', params:'Parâmetros', manual:'Manual', open:'Abrir…', examples:'Exemplos', exSunset:'Pôr do sol', exShapes:'Geometrias', exWord:'Letreiro', word:'SOM', drop:'arraste ou cole uma imagem', spec:'Espectro', wave:'Onda', xy:'XY', press:'PRESSIONE ▶ PARA OUVIR', loop:'Repetir', vol:'Vol', saveWav:'Salvar WAV', saveAll:'Salvar tudo', saveMidi:'Salvar MIDI', reset:'Redefinir', adv:'Avançados', close:'Fechar', lang:'Idioma', on:'Ligado', off:'Desligado' },
+  tip: { open:'Abrir uma imagem (Ctrl+O)', saveWav:'Salvar o som deste modo (Ctrl+S)', saveAll:'Salvar em um zip os sons dos nove modos e seus arquivos MIDI (Ctrl+Shift+S)', saveMidi:'Salvar as notas deste modo como arquivo MIDI (Ctrl+M)', noMidi:'Este modo não tem notas para gravar em MIDI', reset:'Voltar os parâmetros deste modo aos valores iniciais', adv:'Mostrar ou ocultar os parâmetros avançados', manual:'Como este modo funciona', rew:'Voltar ao início', play:'Reproduzir / pausar (espaço)', stop:'Parar', seek:'Clique para se mover dentro do som', knob:'arraste para cima ou para baixo, use a roda ou as setas; duplo clique = valor inicial', examples:'Imagens de exemplo', mode:'{0} (tecla {1})' },
   st: { prep:'Preparando…', calc:'CALCULANDO…', error:'ERRO', silence:'SILÊNCIO', archive:'PACOTE: {0}…', archiveReady:'PACOTE PRONTO · {0} ARQUIVOS' },
   msg: { silent:'Com esta imagem o modo {0} não produz som: tente outro modo ou altere os parâmetros', notImage:'Este arquivo não é uma imagem', cantRead:'Não foi possível ler esta imagem', cantOpen:'Não foi possível abrir {0}', saved:'Salvo: {0}', downloaded:'Baixado: {0}', delivered:'Arquivo entregue: {0}', cancelled:'Salvamento cancelado', saveFailed:'Não foi possível salvar o arquivo', saveNA:'Salvar não está disponível nesta visualização', tooBig:'Imagem grande demais: {0}' },
   scr: { silent:'silêncio: com esta imagem este modo não produz som', analysing:'analisando o espectro…', xy:'esquerdo = X · direito = Y', wave:'âmbar = esquerdo · ciano = direito' },
   mk: { endTail:'fim da imagem · cauda', repeats:'repete', tail:'cauda' },
   cur: { tailRing:'cauda: as últimas notas continuam soando', note:'nota', rest:'pausa (igual ao fundo)', noColour:'sem cor', chord:'acorde', oneHue:'um só matiz: apenas oitavas', onlyAir:'sem cor: apenas sopro' },
   info: { bytes:'{0} bytes lidos', points:'{0} pontos' },
+  mi: { bass:'Baixo', drums:'Bateria', red:'Vermelho', green:'Verde', blue:'Azul' },
   cat: { waves:'Ondas', binary:'Binário', pixel:'Pixels', colour:'Cor', shape:'Forma' },
   grp: { time:'Tempo', pitch:'Altura', read:'Leitura', tone:'Timbre' },
   p: { dur:'Duração', bands:'Bandas', fmin:'Frequência mínima', fmax:'Frequência máxima', axis:'Eixo de frequências', gamma:'Contraste', stereo:'Estéreo pela cor', what:'O que soa', source:'Origem dos bytes', size:'Resolução', scan:'Ordem de leitura', chan:'Canais', fmt:'Formato da amostra', rate:'Amostragem', start:'Ponto de partida', maxDur:'Duração máxima', steps:'Passos', rows:'Notas', scale:'Escala', low:'Nota mais grave', bpm:'Andamento', thresh:'Limiar', poly:'Notas por passo', noteLen:'Duração da nota', gw:'Células na largura', gh:'Células na altura', tonic:'Tônica', octaves:'Oitavas', legato:'Legato', bass:'Baixo', frames:'Linhas lidas', note:'Nota', unison:'Vozes', detune:'Desafinação', smooth:'Suavidade', ping:'Ida e volta', sub:'Oitava abaixo', cols:'Colunas lidas', range:'Extensão', glide:'Portamento', cont:'Continuidade', loops:'Repetições', swing:'Swing', bassline:'Linha de baixo', detail:'Pontos', edge:'Seletividade das bordas', refresh:'Redesenhos por segundo', spin:'Rotação', windows:'Acordes', chordNotes:'Notas por acorde', shimmer:'Batimento', air:'Sopro dos cinzas' },
@@ -614,6 +626,51 @@ function addTone(out, t0, len, f, amp, o) {
   }
 }
 
+/* ======================= note MIDI =======================
+   Le modalità che suonano note le registrano anche qui; «Salva MIDI» le scrive in un file MIDI standard (formato 1, 480 tick per semiminima). */
+function midiInit(out, bpm) { out.midi = { bpm: bpm || 120, tracks: [] }; return out; }
+function midiTrack(out, name, ch, prog, merge) { const tk = { name, ch, prog, merge: !!merge, notes: [] }; out.midi.tracks.push(tk); return tk; }
+const ftom = f => 69 + 12 * Math.log2(f / 440);
+function midiAdd(tk, t, d, n, v) { n = Math.round(n); if (!tk || n < 0 || n > 127 || !(d > 0)) return; tk.notes.push({ t, d, n, v: clamp(Math.round(v), 1, 127) }); }
+const hasMidi = out => !!(out && out.midi && out.midi.tracks.some(tk => tk.notes.length));
+/* stessa nota sullo stesso canale: le tracce «legate» uniscono le note contigue, le altre le ribattono accorciando la precedente */
+function midiTidy(tk) {
+  const by = new Map(), res = [];
+  for (const n of tk.notes) { if (!by.has(n.n)) by.set(n.n, []); by.get(n.n).push(n); }
+  for (const arr of by.values()) {
+    arr.sort((a, b) => a.t - b.t); let cur = null;
+    for (const n of arr) {
+      if (cur && (n.t - cur.t < 1e-4 || (tk.merge && n.t <= cur.t + cur.d + 1e-3))) { cur.d = Math.max(cur.d, n.t + n.d - cur.t); cur.v = Math.max(cur.v, n.v); continue; }
+      if (cur) { if (n.t < cur.t + cur.d) cur.d = n.t - cur.t; res.push(cur); }
+      cur = { ...n };
+    }
+    if (cur) res.push(cur);
+  }
+  return res;
+}
+function midiFile(m) {
+  const PPQ = 480, tps = m.bpm / 60 * PPQ, enc = new TextEncoder();
+  const vlq = n => { const b = [n & 0x7f]; while ((n >>>= 7)) b.unshift((n & 0x7f) | 0x80); return b; };
+  const chunk = (id, data) => { const L = data.length; return [...[...id].map(c => c.charCodeAt(0)), (L >>> 24) & 255, (L >>> 16) & 255, (L >>> 8) & 255, L & 255, ...data]; };
+  const meta = (type, bytes) => [0xff, type, ...vlq(bytes.length), ...bytes];
+  const us = Math.round(60e6 / m.bpm), tracks = [];
+  tracks.push(chunk('MTrk', [0, ...meta(0x03, [...enc.encode('Fotofono')]), 0, ...meta(0x51, [(us >> 16) & 255, (us >> 8) & 255, us & 255]), 0, ...meta(0x58, [4, 2, 24, 8]), 0, 0xff, 0x2f, 0]));
+  for (const tk of m.tracks) {
+    const notes = midiTidy(tk); if (!notes.length) continue;
+    const ev = [];
+    for (const n of notes) { const a = Math.round(n.t * tps), b = Math.max(a + 1, Math.round((n.t + n.d) * tps)); ev.push([a, 1, 0x90 | tk.ch, n.n, n.v], [b, 0, 0x80 | tk.ch, n.n, 0]); }
+    ev.sort((x, y) => x[0] - y[0] || x[1] - y[1]); /* a parità di tempo, prima i rilasci */
+    const data = [0, ...meta(0x03, [...enc.encode(tk.name)])];
+    if (tk.ch !== 9) data.push(0, 0xc0 | tk.ch, tk.prog & 127);
+    let last = 0; for (const [tick, , st, n, v] of ev) { for (const x of vlq(tick - last)) data.push(x); data.push(st, n, v); last = tick; }
+    data.push(0, 0xff, 0x2f, 0); tracks.push(chunk('MTrk', data));
+  }
+  const head = chunk('MThd', [0, 1, (tracks.length >> 8) & 255, tracks.length & 255, PPQ >> 8, PPQ & 255]);
+  const outb = new Uint8Array(head.length + tracks.reduce((a, t) => a + t.length, 0)); let o = 0;
+  for (const part of [head, ...tracks]) { outb.set(part, o); o += part.length; }
+  return outb;
+}
+
 /* ======================= sfondo e differenza dallo sfondo ======================= */
 /* Lo sfondo è il colore più diffuso nell'immagine (istogramma a 16 livelli per canale).
    In un disegno è il foglio, in una sagoma è il fondo: ciò che se ne distingue è il soggetto. */
@@ -671,6 +728,7 @@ const MODES = [
     const g = grid(cols, bands), d = g.d, out = newOut(p.dur), N = out.L.length, L = out.L, R = out.R, dv = p.what === 'diff' ? cellValues(g, 'diff') : null;
     const AL = new Float32Array(cols + 1), AR = new Float32Array(cols + 1), rnd = rng(7);
     const fmax = Math.max(p.fmax, p.fmin + 100);
+    const mk = midiTrack(midiInit(out, 120), tr('m.spectral.s'), 0, 0, true), msteps = Math.max(2, Math.round(p.dur * 8)), mdt = out.dur / msteps;
     for (let r = 0; r < bands; r++) {
       const x = (bands - 1 - r) / (bands - 1);
       const f = p.scale === 'log' ? p.fmin * Math.pow(fmax / p.fmin, x) : p.fmin + (fmax - p.fmin) * x;
@@ -687,6 +745,7 @@ const MODES = [
       }
       AL[cols] = AL[cols - 1]; AR[cols] = AR[cols - 1];
       if (any < 1e-4) continue;
+      { const mn = ftom(f); for (let s2 = 0; s2 < msteps; s2++) { const c = Math.round((s2 + 0.5) / msteps * (cols - 1)), a = Math.max(AL[c], AR[c]); if (a > 0.2) midiAdd(mk, s2 * mdt, mdt, mn, 25 + 102 * Math.min(1, a)); } }
       const inc = f / SR, step = (cols - 1) / (N - 1); let ph = rnd(), cp = 0;
       for (let n = 0; n < N; n++) {
         const c0 = cp | 0, fr = cp - c0;
@@ -765,6 +824,7 @@ const MODES = [
   render(p) {
     const st = p.steps | 0, rows = p.rows | 0, g = grid(st, rows), sc = SCALE[p.scale], stepDur = 60 / p.bpm / 2, val = cellValues(g, p.what);
     const out = newOut(st * stepDur + p.note + 0.1); const byStep = [];
+    const mk = midiTrack(midiInit(out, p.bpm), tr('m.carillon.s'), 0, 10);
     for (let c = 0; c < st; c++) {
       const cand = [];
       for (let r = 0; r < rows; r++) { const j = r * st + c, i = j * 4; if (val[j] > p.thresh) cand.push([val[j], r, rgb2hsv(g.d[i], g.d[i + 1], g.d[i + 2])]); }
@@ -772,6 +832,7 @@ const MODES = [
       for (const [v, r, hsv] of sel) {
         const deg = rows - 1 - r, m = p.root + 12 * Math.floor(deg / sc.length) + sc[deg % sc.length];
         const vel = 0.3 + 0.7 * (v - p.thresh) / Math.max(0.05, 1 - p.thresh);
+        midiAdd(mk, c * stepDur, Math.min(p.note, stepDur * 2), m, 30 + 97 * vel);
         addTone(out, c * stepDur, p.note, mtof(m), 0.28 * vel, { bright: hsv[1], odd: Math.max(0, Math.cos((hsv[0] - 0.62) * TAU)), pan: Math.sin(hsv[0] * TAU) * 0.6 * hsv[1], hdamp: 0.6 });
       }
     }
@@ -804,6 +865,7 @@ const MODES = [
   render(p) {
     const gw = p.gw | 0, gh = p.gh | 0, g = grid(gw, gh), order = scanOrder(gw, gh, p.scan), sc = SCALE[p.scale], stepDur = 60 / p.bpm / 2, val = cellValues(g, p.what);
     const n = order.length, out = newOut(n * stepDur + 1.5), notes = [];
+    const mk = midiTrack(midiInit(out, p.bpm), tr('m.melodia.s'), 0, 11), mb = p.bass ? midiTrack(out, tr('mi.bass'), 1, 32) : null;
     for (let k = 0; k < n; k++) {
       const pi = order[k], i = pi * 4, [h, s, v] = rgb2hsv(g.d[i], g.d[i + 1], g.d[i + 2]);
       if (val[pi] < p.thresh) { notes.push(null); continue; }
@@ -811,8 +873,9 @@ const MODES = [
       if (!grey) { deg = Math.floor(h * sc.length) % sc.length; m = p.root - 12 + 12 * Math.min(p.octaves - 1, Math.floor(v * p.octaves)) + sc[deg]; }
       else { const tot = p.octaves * sc.length, idx = Math.min(tot - 1, Math.floor(lumOf(g.d, i) * tot)); deg = idx % sc.length; m = p.root - 12 + 12 * Math.floor(idx / sc.length) + sc[deg]; }
       notes.push({ m, grey });
+      midiAdd(mk, k * stepDur, stepDur * (p.legato ? 2 : 0.9), m, 50 + 77 * Math.max(v, 0.35));
       addTone(out, k * stepDur, stepDur * (p.legato ? 2.4 : 1.1) + 0.12, mtof(m), 0.25 * (0.45 + 0.55 * Math.max(v, 0.35)), { bright: grey ? 0.12 : 0.25 + 0.6 * s, odd: grey ? 0.8 : 0.3, pan: gw > 1 ? ((pi % gw) / (gw - 1) - 0.5) * 1.3 : 0, hdamp: 0.5, attack: p.legato ? 0.02 : 0.004 });
-      if (p.bass && k % 4 === 0) addTone(out, k * stepDur, stepDur * 4.3, mtof(p.root - 24 + sc[deg]), 0.2, { bright: 0.2, odd: 0.6, hdamp: 0.8, harm: 6 });
+      if (p.bass && k % 4 === 0) { addTone(out, k * stepDur, stepDur * 4.3, mtof(p.root - 24 + sc[deg]), 0.2, { bright: 0.2, odd: 0.6, hdamp: 0.8, harm: 6 }); midiAdd(mb, k * stepDur, stepDur * 4, p.root - 24 + sc[deg], 80); }
     }
     out.cursor = t => {
       const k = Math.floor(t / stepDur), sh = [{ k:'grid', cols: gw, rows: gh }];
@@ -851,6 +914,7 @@ const MODES = [
     const out = newOut(p.dur), N = out.L.length, nv = +p.voices, f0 = mtof(p.note);
     const vs = []; for (let v = 0; v < nv; v++) { const u = nv === 1 ? 0 : v / (nv - 1) - 0.5; vs.push({ f: f0 * Math.pow(2, u * 2 * p.detune / 1200), pan: u * 1.4, a: 1 }); }
     if (p.sub) vs.push({ f: f0 / 2, pan: 0, a: 0.7 });
+    { const mk = midiTrack(midiInit(out, 120), tr('m.wavetable.s'), 0, 90); midiAdd(mk, 0, out.dur, p.note, 90); if (p.sub) midiAdd(mk, 0, out.dur, p.note - 12, 70); }
     const pos = n => { let tt = n / (N - 1); if (p.ping) tt = 1 - Math.abs(1 - 2 * tt); return tt * (rows - 1); };
     for (const v of vs) {
       const [gl, gr] = panGains(v.pan), inc = v.f * W / SR; let ph = Math.random() * W;
@@ -903,11 +967,18 @@ const MODES = [
       const k = 1 - 0.92 * p.glide; for (let c = 1; c < cols; c++) Y[ch][c] = Y[ch][c - 1] + (Y[ch][c] - Y[ch][c - 1]) * k;
     }
     const out = newOut(p.dur), N = out.L.length, step = (cols - 1) / (N - 1), l2 = Math.log2(p.fmin);
-    const pans = [-0.75, 0, 0.75];
+    const pans = [-0.75, 0, 0.75], MT = [['mi.red', 81], ['mi.green', 79], ['mi.blue', 73]]; midiInit(out, 120);
     for (let ch = 0; ch < 3; ch++) {
       const LF = new Float32Array(cols + 1), AA = new Float32Array(cols + 1);
       for (let c = 0; c < cols; c++) { LF[c] = l2 + p.oct * (1 - Y[ch][c] / (H - 1)); AA[c] = Math.sqrt(A[ch][c] / amax); }
       LF[cols] = LF[cols - 1]; AA[cols] = AA[cols - 1];
+      { const tk = midiTrack(out, tr(MT[ch][0]), ch, MT[ch][1]), dc = out.dur / (cols - 1); let cur = null;
+        for (let c = 0; c < cols; c++) {
+          const nn = Math.round(69 + 12 * (LF[c] - Math.log2(440))), on = AA[c] >= 0.12;
+          if (cur && (!on || nn !== cur.n)) { midiAdd(tk, cur.t, c * dc - cur.t, cur.n, cur.v); cur = null; }
+          if (on && !cur) cur = { t: c * dc, n: nn, v: 40 + 87 * AA[c] };
+        }
+        if (cur) midiAdd(tk, cur.t, out.dur - cur.t, cur.n, cur.v); }
       const [gl, gr] = panGains(pans[ch]); let ph = 0, cp = 0;
       for (let n = 0; n < N; n++) {
         const c0 = cp | 0, fr = cp - c0; cp += step;
@@ -953,12 +1024,13 @@ const MODES = [
     const hat = (t, v) => hit(t, 0.08, (tt, s) => { const nz = rnd() * 2 - 1, h1 = nz - s.z; s.z = nz; const h2 = h1 - s.z2; s.z2 = h1; return h2 * 0.22 * Math.exp(-tt / 0.018) * v; }, 0.35);
     const trig = [];
     for (let s = 0; s < st; s++) trig.push([E[0][s] > p.thresh, E[1][s] > p.thresh, E[2][s] > p.thresh]);
+    const md = midiTrack(midiInit(out, p.bpm), tr('mi.drums'), 9, 0), mbs = p.bass ? midiTrack(out, tr('mi.bass'), 1, 38) : null;
     for (let l = 0; l < p.loops; l++) for (let s = 0; s < st; s++) {
       const t = l * loopLen + s * sd + (s % 2 ? p.swing * sd : 0);
-      if (trig[s][2]) kick(t, 0.5 + 0.5 * E[2][s]);
-      if (trig[s][1]) snare(t, 0.4 + 0.6 * E[1][s]);
-      if (trig[s][0]) hat(t, 0.4 + 0.6 * E[0][s]);
-      if (p.bass && s % 2 === 0 && hues[s][1] > 0.08) { const sc = SCALE.minpenta, deg = Math.floor(hues[s][0] * sc.length) % sc.length; addTone(out, t, sd * 1.8, mtof(33 + sc[deg] + (hues[s][2] > 0.6 ? 12 : 0)), 0.22, { bright: 0.55, odd: 0.1, harm: 8, hdamp: 0.3 }); }
+      if (trig[s][2]) { kick(t, 0.5 + 0.5 * E[2][s]); midiAdd(md, t, sd * 0.5, 36, 60 + 67 * E[2][s]); }
+      if (trig[s][1]) { snare(t, 0.4 + 0.6 * E[1][s]); midiAdd(md, t, sd * 0.5, 38, 55 + 72 * E[1][s]); }
+      if (trig[s][0]) { hat(t, 0.4 + 0.6 * E[0][s]); midiAdd(md, t, sd * 0.5, 42, 50 + 77 * E[0][s]); }
+      if (p.bass && s % 2 === 0 && hues[s][1] > 0.08) { const sc = SCALE.minpenta, deg = Math.floor(hues[s][0] * sc.length) % sc.length; addTone(out, t, sd * 1.8, mtof(33 + sc[deg] + (hues[s][2] > 0.6 ? 12 : 0)), 0.22, { bright: 0.55, odd: 0.1, harm: 8, hdamp: 0.3 }); midiAdd(mbs, t, sd * 1.8, 33 + sc[deg] + (hues[s][2] > 0.6 ? 12 : 0), 90); }
     }
     out.marks = []; for (let l = 1; l <= p.loops; l++) out.marks.push({ t: l * loopLen, label: l === 1 && p.loops > 1 ? tr('mk.repeats') : l === p.loops ? tr('mk.tail') : '' });
     out.cursor = t => {
@@ -1027,6 +1099,8 @@ const MODES = [
       chords.push(ks.map(b => noteName(p.root + Math.floor(b / 12) * 12 + (b % 12))).join(' ') + (ks.length && pcs.size === 1 ? ' (' + tr('cur.oneHue') + ')' : ''));
     }
     const out = newOut(p.dur), N = out.L.length, wd = out.dur / wins, BL = 64;
+    { const mk = midiTrack(midiInit(out, 120), tr('m.accordo.s'), 0, 89, true);
+      for (let wi = 0; wi < wins; wi++) for (let b = 0; b < nb; b++) { const a = A[wi * nb + b]; if (a > 0) midiAdd(mk, wi * wd, wd, p.root + Math.floor(b / 12) * 12 + (b % 12), 45 + 82 * Math.min(1, a * 1.6)); } }
     const ampAt = (b, t) => { const u = clamp(t / wd - 0.5, 0, wins - 1), w0 = Math.floor(u), w1 = Math.min(wins - 1, w0 + 1); let f = u - w0; f = f * f * (3 - 2 * f); return A[w0 * nb + b] * (1 - f) + A[w1 * nb + b] * f; };
     for (let b = 0; b < nb; b++) {
       let active = false; for (let wi = 0; wi < wins; wi++) if (A[wi * nb + b] > 0) active = true; if (!active) continue;
@@ -1127,7 +1201,7 @@ async function render() {
   $('#play').disabled = false;
   status(mShort(S.mode).toUpperCase() + ' · ' + nf(out.dur, 1) + ' s · ' + nf(44.1, 1) + ' kHz · ' + nf(performance.now() - t0) + ' ms' + (out.silent ? ' · ' + tr('st.silence') : out.info ? ' · ' + out.info : ''));
   if (out.silent) toast(tr('msg.silent', mShort(S.mode)));
-  buildSpec();
+  buildSpec(); updMidi();
   $('#scrinfo').textContent = scopeInfo();
 }
 function scheduleRender() { clearTimeout(renderTimer); renderTimer = setTimeout(render, 260); }
@@ -1249,8 +1323,12 @@ function buildDetail() {
 /* ======================= lingua ======================= */
 function saveLabels() {
   const zip = !!dlZip, dots = IN_APP ? '…' : '';
-  $('#dl .t').textContent = tr('ui.saveWav') + (zip ? ' (zip)' : dots); $('#dlall .t').textContent = tr('ui.saveAll') + dots;
+  /* etichette brevi e universali (formato del file); la descrizione tradotta è nel suggerimento */
+  $('#dl .t').textContent = 'WAV' + (zip ? ' (zip)' : dots); $('#dlmid .t').textContent = 'MIDI' + (zip ? ' (zip)' : dots); $('#dlall .t').textContent = 'ZIP' + dots;
+  updMidi();
 }
+/* «Salva MIDI» è attivo solo dove ci sono note; altrimenti resta visibile ma spento e, se premuto, spiega perché */
+function updMidi() { const ok = hasMidi(S.out), b = $('#dlmid'); b.classList.toggle('off', !ok); b.setAttribute('aria-disabled', !ok); b.title = tr(ok ? 'tip.saveMidi' : 'tip.noMidi'); b.setAttribute('aria-label', b.title); }
 function buildVol() {
   const box = $('#volk'); box.innerHTML = '';
   box.appendChild(makeKnob({ id: 'vol', label: tr('ui.vol'), min: 0, max: 1, step: 0.01, value: S.vol, def: 0.8, compact: true, fmt: v => Math.round(v * 100) + ' %', onChange: v => { S.vol = v; if (master) master.gain.setTargetAtTime(v, AC.currentTime, 0.02); } }));
@@ -1540,7 +1618,7 @@ if (IN_APP) {
   });
 }
 const dlReady = IN_VIEWER ? Promise.resolve(window.claude.use('downloads')).catch(() => null) : Promise.resolve(null);
-dlReady.then(d => { dlZip = d; saveLabels(); if (!d && IN_VIEWER) { $('#dl').disabled = true; $('#dlall').disabled = true; $('#dl').title = $('#dlall').title = tr('msg.saveNA'); } });
+dlReady.then(d => { dlZip = d; saveLabels(); if (!d && IN_VIEWER) { $('#dl').disabled = $('#dlall').disabled = $('#dlmid').disabled = true; $('#dl').title = $('#dlall').title = $('#dlmid').title = tr('msg.saveNA'); } });
 async function deliver(blob, filename) {
   const DL = await dlReady;
   if (DL) { try { await DL.save({ filename, data: blob }); toast(tr('msg.delivered', filename)); } catch (e) { toast(tr(e && e.code === 'declined' ? 'msg.cancelled' : 'msg.saveFailed')); } return; }
@@ -1553,10 +1631,15 @@ async function downloadOne() {
   if (!S.out) return; const base = 'fotofono-' + slug(IMG_NAME) + '-' + S.mode, wav = wavBytes(S.out.L, S.out.R);
   if (await dlReady) deliver(zipStore([{ name: base + '.wav', data: wav }]), base + '.zip'); else deliver(new Blob([wav], { type: 'audio/wav' }), base + '.wav');
 }
+async function downloadMidi() {
+  if (!S.out) return; if (!hasMidi(S.out)) { toast(tr('tip.noMidi')); return; }
+  const base = 'fotofono-' + slug(IMG_NAME) + '-' + S.mode, mid = midiFile(S.out.midi);
+  if (await dlReady) deliver(zipStore([{ name: base + '.mid', data: mid }]), base + '.zip'); else deliver(new Blob([mid], { type: 'audio/midi' }), base + '.mid');
+}
 async function downloadAll() {
   const btn = $('#dlall'); btn.disabled = true; const files = [];
   try {
-    for (const id of ORDER) { status(tr('st.archive', mShort(id).toUpperCase()), true); await nextFrame(); const o = computeMode(id); files.push({ name: 'fotofono-' + slug(IMG_NAME) + '-' + id + '.wav', data: wavBytes(o.L, o.R) }); }
+    for (const id of ORDER) { status(tr('st.archive', mShort(id).toUpperCase()), true); await nextFrame(); const o = computeMode(id); files.push({ name: 'fotofono-' + slug(IMG_NAME) + '-' + id + '.wav', data: wavBytes(o.L, o.R) }); if (hasMidi(o)) files.push({ name: 'fotofono-' + slug(IMG_NAME) + '-' + id + '.mid', data: midiFile(o.midi) }); }
     status(tr('st.archiveReady', files.length));
     await deliver(zipStore(files), 'fotofono-' + slug(IMG_NAME) + '.zip');
   } catch (e) { status(tr('st.error') + ': ' + e.message); }
@@ -1569,7 +1652,7 @@ $('#play').onclick = () => { if (!S.out) return; if (S.playing) pause(); else pl
 $('#stop').onclick = () => stopAll();
 $('#rew').onclick = () => { if (S.playing) play(0); else S.offset = 0; };
 $('#loop').onclick = () => { S.loop = !S.loop; $('#loop').setAttribute('aria-pressed', S.loop); if (S.playing) play(curTime()); };
-$('#dl').onclick = downloadOne; $('#dlall').onclick = downloadAll;
+$('#dl').onclick = downloadOne; $('#dlall').onclick = downloadAll; $('#dlmid').onclick = downloadMidi;
 $('#reset').onclick = () => { S.params[S.mode] = defaults(modeById(S.mode)); buildDetail(); render(); };
 $('#advtoggle').onclick = () => { S.adv = !S.adv; store.set('adv', S.adv ? '1' : '0'); buildDetail(); };
 $('#lang').onchange = e => setLang(e.target.value);
@@ -1590,6 +1673,7 @@ document.addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && !e.altKey) {
     const k = e.key.toLowerCase();
     if (k === 'o') { e.preventDefault(); $('#file').click(); }
+    else if (k === 'm') { e.preventDefault(); downloadMidi(); }
     else if (k === 's') { e.preventDefault(); if (e.shiftKey) { if (!$('#dlall').disabled) downloadAll(); } else if (!$('#dl').disabled) downloadOne(); }
     return;
   }

@@ -21,6 +21,7 @@ static class Strings
             ["saveTitle"] = "Save the sound",
             ["wav"] = "WAV audio",
             ["zip"] = "ZIP archive",
+            ["midi"] = "MIDI file",
         },
         ["it"] = new()
         {
@@ -32,6 +33,7 @@ static class Strings
             ["saveTitle"] = "Salva il suono",
             ["wav"] = "Audio WAV",
             ["zip"] = "Archivio ZIP",
+            ["midi"] = "File MIDI",
         },
         ["es"] = new()
         {
@@ -43,6 +45,7 @@ static class Strings
             ["saveTitle"] = "Guardar el sonido",
             ["wav"] = "Audio WAV",
             ["zip"] = "Archivo ZIP",
+            ["midi"] = "Archivo MIDI",
         },
         ["fr"] = new()
         {
@@ -54,6 +57,7 @@ static class Strings
             ["saveTitle"] = "Enregistrer le son",
             ["wav"] = "Audio WAV",
             ["zip"] = "Archive ZIP",
+            ["midi"] = "Fichier MIDI",
         },
         ["de"] = new()
         {
@@ -65,6 +69,7 @@ static class Strings
             ["saveTitle"] = "Klang speichern",
             ["wav"] = "WAV-Audio",
             ["zip"] = "ZIP-Archiv",
+            ["midi"] = "MIDI-Datei",
         },
         ["pt"] = new()
         {
@@ -76,6 +81,7 @@ static class Strings
             ["saveTitle"] = "Salvar o som",
             ["wav"] = "Áudio WAV",
             ["zip"] = "Arquivo ZIP",
+            ["midi"] = "Arquivo MIDI",
         },
     };
 
