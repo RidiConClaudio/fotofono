@@ -66,23 +66,23 @@ Every mode that plays notes can also save them as a standard MIDI file (format 1
 
 English, Italiano, Español, Français, Deutsch, Português.
 
-To add a language, copy the `en` block of the `I18N` object in `docs/index.html`, translate the values and give it the two-letter language code. Missing keys fall back to English. For the Windows dialogs, add the same code to `windows/Strings.cs`.
+To add a language, copy the `en` block of the `I18N` object in `docs/index.html`, translate the values and give it the two-letter language code. Missing keys fall back to English. For the Windows dialogs, add a column to the table in `windows/src/strings.rs`.
 
 ## Build the Windows app
 
-Requirements: Windows and the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0).
+Requirements: Windows and [Rust](https://rustup.rs/) (MSVC toolchain).
 
 ```bash
 cd windows
-dotnet publish -c Release -o ../build
+cargo build --release
 ```
 
-The result is `build/Fotofono.exe` (self-contained, about 70 MB). The app embeds `docs/index.html`, so web and desktop always share the same code.
+The result is `windows/target/release/Fotofono.exe` (a single portable file, about 1.5 MB). The app embeds `docs/index.html`, so web and desktop always share the same code.
 
 ## How it is made
 
 - `docs/index.html` — the whole instrument: image analysis, the nine synthesis engines, the interface and the translations, in plain HTML, CSS and JavaScript with no dependencies. Audio is computed sample by sample and played with the Web Audio API.
-- `windows/` — a small C# / WinForms shell around [WebView2](https://learn.microsoft.com/microsoft-edge/webview2/) that adds the native *Save as* dialog, *Open with*, offline fonts and a remembered window position.
+- `windows/` — a small Rust shell ([tao](https://github.com/tauri-apps/tao) + [wry](https://github.com/tauri-apps/wry)) around [WebView2](https://learn.microsoft.com/microsoft-edge/webview2/) that adds the native *Save as* dialog, *Open with*, offline fonts and a remembered window position.
 
 ## Credits
 
