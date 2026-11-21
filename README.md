@@ -36,6 +36,8 @@ It runs as a **Windows app** (one portable `.exe`, nothing to install) or as a *
 
 **Windows:** download `Fotofono.exe` from the [latest release](../../releases/latest) and double-click it. Nothing to install: it's a single portable file. It needs Microsoft Edge WebView2, which is already part of Windows 11 (on older systems the app offers the download link).
 
+Settings, log and the WebView2 cache live in `%LOCALAPPDATA%\you_are_incredible\Fotofono\`.
+
 **Any system:** use the [web version](https://ridiconclaudio.github.io/fotofono/), or open [`docs/index.html`](docs/index.html) in a modern browser.
 
 - Drag, paste (Ctrl+V) or open (Ctrl+O) an image, or start from the built-in examples.

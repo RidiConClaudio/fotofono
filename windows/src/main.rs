@@ -70,12 +70,23 @@ const FONTS: &[(&str, &[u8])] = &[
     ("ShareTechMono-400.woff2", include_bytes!("../fonts/ShareTechMono-400.woff2")),
 ];
 
+/// All the app's files live in %LOCALAPPDATA%\you_are_incredible\Fotofono.
 /// FOTOFONO_DATA lets you use another data folder (for example for automated tests)
 pub fn data_dir() -> &'static Path {
     static DIR: OnceLock<PathBuf> = OnceLock::new();
     DIR.get_or_init(|| match std::env::var_os("FOTOFONO_DATA") {
         Some(d) if !d.is_empty() => PathBuf::from(d),
-        _ => PathBuf::from(std::env::var_os("LOCALAPPDATA").unwrap_or_default()).join("Fotofono"),
+        _ => {
+            let local = PathBuf::from(std::env::var_os("LOCALAPPDATA").unwrap_or_default());
+            let dir = local.join("you_are_incredible").join("Fotofono");
+            // Up to 2.2.0 the data lived in %LOCALAPPDATA%\Fotofono: move it over once
+            let old = local.join("Fotofono");
+            if !dir.exists() && old.is_dir() {
+                let _ = std::fs::create_dir_all(local.join("you_are_incredible"));
+                let _ = std::fs::rename(&old, &dir);
+            }
+            dir
+        }
     })
 }
 
