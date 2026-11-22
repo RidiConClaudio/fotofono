@@ -94,11 +94,12 @@ fn detect() -> usize {
             return i;
         }
     }
-    index_of(&windows_ui_language()).unwrap_or(0)
+    index_of(&os_ui_language()).unwrap_or(0)
 }
 
 /// Two-letter code of the Windows display language (like CultureInfo.CurrentUICulture).
-fn windows_ui_language() -> String {
+#[cfg(windows)]
+fn os_ui_language() -> String {
     use windows::Win32::Globalization::{GetUserDefaultUILanguage, LCIDToLocaleName};
     let mut buf = [0u16; 85];
     let n = unsafe { LCIDToLocaleName(GetUserDefaultUILanguage() as u32, Some(&mut buf), 0) };
@@ -107,4 +108,43 @@ fn windows_ui_language() -> String {
     }
     let name = String::from_utf16_lossy(&buf[..(n - 1) as usize]);
     name.split('-').next().unwrap_or("").to_ascii_lowercase()
+}
+
+/// Two-letter code of the display language on Linux and macOS.
+#[cfg(not(windows))]
+fn os_ui_language() -> String {
+    for var in ["LC_ALL", "LC_MESSAGES", "LANG"] {
+        if let Ok(val) = std::env::var(var) {
+            let trimmed = val.trim();
+            if !trimmed.is_empty() && trimmed != "C" && trimmed != "POSIX" {
+                let code = trimmed
+                    .split(['_', '-', '.'])
+                    .next()
+                    .unwrap_or("")
+                    .to_ascii_lowercase();
+                if code.len() == 2 {
+                    return code;
+                }
+            }
+        }
+    }
+    #[cfg(target_os = "macos")]
+    if let Ok(out) = std::process::Command::new("defaults")
+        .args(["read", "-g", "AppleLocale"])
+        .output()
+    {
+        if out.status.success() {
+            let s = String::from_utf8_lossy(&out.stdout);
+            let code = s
+                .trim()
+                .split(['_', '-'])
+                .next()
+                .unwrap_or("")
+                .to_ascii_lowercase();
+            if code.len() == 2 {
+                return code;
+            }
+        }
+    }
+    String::from("en")
 }

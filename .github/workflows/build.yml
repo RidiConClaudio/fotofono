@@ -1,0 +1,121 @@
+name: Build Cross-Platform Binaries
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    name: Windows (x86_64)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: windows
+      - name: Build Windows Release
+        working-directory: windows
+        run: cargo build --release --locked
+      - name: Upload Windows Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Fotofono-windows-x86_64
+          path: windows/target/release/Fotofono.exe
+
+  build-linux:
+    name: Linux (x86_64)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Linux System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev \
+            libwebkit2gtk-4.1-dev \
+            libsoup-3.0-dev \
+            libjavascriptcoregtk-4.1-dev \
+            pkg-config \
+            build-essential
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: windows
+      - name: Build Linux Release
+        working-directory: windows
+        run: cargo build --release --locked
+      - name: Package Linux Binary
+        run: |
+          cp windows/target/release/Fotofono Fotofono-linux-x86_64
+          chmod +x Fotofono-linux-x86_64
+          tar -czvf Fotofono-linux-x86_64.tar.gz Fotofono-linux-x86_64
+      - name: Upload Linux Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Fotofono-linux-x86_64
+          path: |
+            Fotofono-linux-x86_64
+            Fotofono-linux-x86_64.tar.gz
+
+  build-macos:
+    name: macOS (Universal .app)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: windows
+      - name: Build macOS Universal Release
+        working-directory: windows
+        run: |
+          cargo build --release --locked --target aarch64-apple-darwin
+          cargo build --release --locked --target x86_64-apple-darwin
+      - name: Create Universal macOS App Bundle
+        run: |
+          APP_DIR="Fotofono.app/Contents"
+          mkdir -p "$APP_DIR/MacOS" "$APP_DIR/Resources"
+          lipo -create \
+            windows/target/aarch64-apple-darwin/release/Fotofono \
+            windows/target/x86_64-apple-darwin/release/Fotofono \
+            -output "$APP_DIR/MacOS/Fotofono"
+          chmod +x "$APP_DIR/MacOS/Fotofono"
+          cat > "$APP_DIR/Info.plist" << 'EOF'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleName</key>
+            <string>Fotofono</string>
+            <key>CFBundleDisplayName</key>
+            <string>Fotofono</string>
+            <key>CFBundleIdentifier</key>
+            <string>com.you-are-incredible.fotofono</string>
+            <key>CFBundleVersion</key>
+            <string>2.3.0</string>
+            <key>CFBundleShortVersionString</key>
+            <string>2.3.0</string>
+            <key>CFBundlePackageType</key>
+            <string>APPL</string>
+            <key>CFBundleExecutable</key>
+            <string>Fotofono</string>
+            <key>LSMinimumSystemVersion</key>
+            <string>11.0</string>
+            <key>NSHighResolutionCapable</key>
+            <true/>
+          </dict>
+          </plist>
+          EOF
+          ditto -c -k --sequesterRsrc --keepParent "Fotofono.app" Fotofono-macos-universal.zip
+      - name: Upload macOS Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Fotofono-macos-universal
+          path: Fotofono-macos-universal.zip

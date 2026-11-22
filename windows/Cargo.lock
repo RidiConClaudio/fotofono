@@ -584,6 +584,7 @@ name = "fotofono"
 version = "2.3.0"
 dependencies = [
  "base64 0.22.1",
+ "libc",
  "regex",
  "rfd",
  "serde",

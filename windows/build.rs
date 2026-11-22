@@ -2,6 +2,7 @@
 fn main() {
     println!("cargo:rerun-if-changed=fotofono.ico");
     println!("cargo:rerun-if-changed=../docs/index.html");
+    #[cfg(windows)]
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
         let mut res = winresource::WindowsResource::new();
         res.set_icon("fotofono.ico") // resource 1, also used as the window icon
