@@ -99,9 +99,9 @@ jobs:
             <key>CFBundleIdentifier</key>
             <string>com.you-are-incredible.fotofono</string>
             <key>CFBundleVersion</key>
-            <string>2.3.0</string>
+            <string>2.4.0</string>
             <key>CFBundleShortVersionString</key>
-            <string>2.3.0</string>
+            <string>2.4.0</string>
             <key>CFBundlePackageType</key>
             <string>APPL</string>
             <key>CFBundleExecutable</key>
